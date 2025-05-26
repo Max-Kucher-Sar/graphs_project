@@ -1,0 +1,20 @@
+version : '3.9'
+
+services:
+
+  fastapi:
+    build:
+      context: ./app/python/
+      dockerfile: Dockerfile
+    # env_file:
+    #   - .env
+    volumes:
+      - ./app/code/:/app/
+    ports:
+      - "8000:8000"
+    networks: 
+        - data-network
+
+networks:
+  data-network:
+    driver: bridge

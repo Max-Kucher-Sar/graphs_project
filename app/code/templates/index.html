@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Анализ данных скважин</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.plot.ly/plotly-2.18.0.min.js"></script>
+</head>
+<body>
+    <div class="main-container">
+        <div class="data-panel">
+            <div class="folders-container">
+                <h5 style="margin-bottom: 15px;">Управление скважинами</h5>
+
+                <form method="POST" action="/create-folder" class="create-folder-form">
+                    <input type="text" name="folder_name" class="folder-input" placeholder="Название скважины" required>
+                    <button type="submit" class="create-btn">Создать</button>
+                </form>
+
+                <div id="foldersList">
+                    {% for folder in folders %}
+                    <div class="data-card {% if not loop.first %}collapsed{% endif %}" data-folder="{{ folder }}">
+                        <div class="card-header">
+                            <button class="collapse-btn" onclick="toggleCollapse('{{ folder }}')"></button>
+                            <span class="card-header-title">{{ folder }}</span>
+                            <button class="delete-btn" onclick="deleteWell('{{ folder }}')">×</button>
+                        </div>
+
+                        <div class="card-body">
+                            <!-- Давление -->
+                            <div class="param-group">
+                                <div class="param-header" onclick="toggleParam('{{ folder }}', 'pressure')">
+                                    <div class="checkbox-container">
+                                        <div class="custom-checkbox {% if saved_flags[folder]['pressure'] %}checked{% endif %}"
+                                             id="pressure-{{ folder }}"></div>
+                                    </div>
+                                    <span>Давление</span>
+                                </div>
+                                {% if not saved_flags[folder]['pressure'] and not data_storage.get(folder, {}).get('pressure') %}
+                                <form method="POST" action="/confirm-data" class="data-form">
+                                    <input type="hidden" name="folder_name" value="{{ folder }}">
+                                    <input type="hidden" name="data_type" value="pressure">
+                                    <textarea name="pasted_data" placeholder="Вставьте данные (дата и значение)" required></textarea>
+                                    <select name="date_format" class="date-format-select" required>
+                                        <option value="date">ДД.ММ.ГГГГ</option>
+                                        <option value="datetime">ДД.ММ.ГГГГ ЧЧ:ММ:СС</option>
+                                    </select>
+                                    <button type="submit" class="save-btn">Сохранить</button>
+                                </form>
+                                {% endif %}
+                            </div>
+
+                            <!-- Дебит -->
+                            <div class="param-group">
+                                <div class="param-header" onclick="toggleParam('{{ folder }}', 'debit')">
+                                    <div class="checkbox-container">
+                                        <div class="custom-checkbox {% if saved_flags[folder]['debit'] %}checked{% endif %}"
+                                             id="debit-{{ folder }}"></div>
+                                    </div>
+                                    <span>Дебит</span>
+                                </div>
+                                {% if not saved_flags[folder]['debit'] and not data_storage.get(folder, {}).get('debit') %}
+                                <form method="POST" action="/confirm-data" class="data-form">
+                                    <input type="hidden" name="folder_name" value="{{ folder }}">
+                                    <input type="hidden" name="data_type" value="debit">
+                                    <textarea name="pasted_data" placeholder="Вставьте данные (дата и значение)" required></textarea>
+                                    <select name="date_format" class="date-format-select" required>
+                                        <option value="date">ДД.ММ.ГГГГ</option>
+                                        <option value="datetime">ДД.ММ.ГГГГ ЧЧ:ММ</option>
+                                    </select>
+                                    <button type="submit" class="save-btn">Сохранить</button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="status-bar">
+                {% if message %}
+                <span class="text-success">{{ message }}</span>
+                {% else %}
+                <span class="text-muted">Готов</span>
+                {% endif %}
+                <form action="/end-session" method="post" style="margin-left: auto;">
+                    <button type="submit" class="btn btn-link">Завершить сессию</button>
+                </form>
+            </div>
+        </div>
+
+        <div class="plots-panel" id="plotsPanel">
+            <div class="plots-header">
+                <h3>Визуализация данных</h3>
+            </div>
+            <div class="plots-content" id="plotsContent">
+                {% if plots_html is defined %}
+                    <div class="plots-vertical-container">
+                        {% for well_name, well_plots in plots_html.items() %}
+                            {% if 'pressure' in well_plots and saved_flags[well_name]['pressure'] %}
+                                <div class="plot-wrapper full-width">
+                                    <div class="plot-container" id="plot-{{ well_name }}-pressure">
+                                        {{ well_plots['pressure']|safe }}
+                                    </div>
+                                </div>
+                            {% endif %}
+                            {% if 'debit' in well_plots and saved_flags[well_name]['debit'] %}
+                                <div class="plot-wrapper full-width">
+                                    <div class="plot-container" id="plot-{{ well_name }}-debit">
+                                        {{ well_plots['debit']|safe }}
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% if not plots_html %}
+                        <div class='no-plots'>Нет активных графиков для отображения</div>
+                    {% endif %}
+                {% else %}
+                    <div class='no-plots'>Загрузка данных...</div>
+                {% endif %}
+
+        <div class="input-container">
+            <p>в будущем тут будут константы для скважин</p>
+
+        </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.data-card').forEach(card => {
+                const folder = card.dataset.folder;
+                const isCollapsed = localStorage.getItem(`collapsed_${folder}`);
+                if (isCollapsed === 'true') {
+                    card.classList.add('collapsed');
+                } else if (isCollapsed === 'false') {
+                    card.classList.remove('collapsed');
+                }
+            });
+        });
+
+        async function refreshPlots() {
+            try {
+                const response = await fetch('/');
+                if (response.ok) {
+                    window.location.reload();
+                } else {
+                    throw new Error('Ошибка сервера');
+                }
+            } catch (error) {
+                console.error('Ошибка обновления:', error);
+                document.getElementById('plotsContent').innerHTML =
+                    '<div class="error">Ошибка обновления данных</div>';
+            }
+        }
+
+        async function toggleParam(folder, paramType) {
+            const checkbox = document.getElementById(`${paramType}-${folder}`);
+            checkbox.classList.add('loading');
+
+            try {
+                const response = await fetch(`/api/toggle-param/${folder}/${paramType}`, {
+                    method: 'POST'
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    checkbox.classList.toggle('checked', result.new_state);
+                    await refreshPlots();
+                } else {
+                    throw new Error('Ошибка сервера');
+                }
+            } catch (error) {
+                console.error('Ошибка:', error);
+                alert('Не удалось изменить состояние параметра');
+            } finally {
+                checkbox.classList.remove('loading');
+            }
+        }
+
+        async function deleteWell(folderName) {
+            if (confirm(`Вы уверены, что хотите удалить скважину "${folderName}"?`)) {
+                try {
+                    const response = await fetch(`/delete-folder/${folderName}`, {
+                        method: 'POST'
+                    });
+
+                    if (response.ok) {
+                        localStorage.removeItem(`collapsed_${folderName}`);
+                        const result = await response.json();
+                        alert(result.message);
+                        window.location.reload();
+                    } else {
+                        throw new Error('Ошибка сервера');
+                    }
+                } catch (error) {
+                    console.error('Ошибка при удалении:', error);
+                    alert('Не удалось удалить скважину');
+                }
+            }
+        }
+
+        function toggleCollapse(folderName) {
+            const card = document.querySelector(`.data-card[data-folder="${folderName}"]`);
+            if (!card) return;
+
+            card.classList.toggle('collapsed');
+            localStorage.setItem(`collapsed_${folderName}`, card.classList.contains('collapsed'));
+        }
+    </script>
+</body>
+</html>

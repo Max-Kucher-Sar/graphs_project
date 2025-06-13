@@ -12,6 +12,9 @@ from fastapi.responses import HTMLResponse
 import plotly.graph_objects as go
 from plotly.io import to_html
 
+import sys
+sys.setrecursionlimit(10000)
+
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
@@ -119,12 +122,12 @@ async def create_folder(request: Request, folder_name: str = Form(...)):
         raise HTTPException(status_code=400, detail="Скважина уже существует")
     else:
         if folder_name.lower() in spider_list:
-            reformat_data = SpiderData(session["data_storage"]).reformat_time()
+            reformat_data = SpiderData(folder_data=session).reformat_time() # функция для перевода даты в часы
             session['spider'] = reformat_data
 
             return RedirectResponse(url="/?message=паук+создан", status_code=303)
         else:
-            # Создаем новую скважину в данных текущей сессии
+            # создаем новую скважину в данных текущей сессии
             session["data_storage"][folder_name] = {"pressure": {}, "debit": {}}
             session["saved_flags"][folder_name] = {"pressure": False, "debit": False}
             session["column_formats"][folder_name] = {"pressure": "", "debit": ""}
@@ -200,20 +203,37 @@ async def confirm_data(
 async def create_well_spider(
     request: Request,
     folder_name: str = Form(...),
-    height: int = Form(...),
-    viscosity: int = Form(...),
-    permeability: int = Form(...),
-    porosity: int = Form(...),
-    well_radius: int = Form(...),
-    betta_oil: int = Form(...),
-    betta_water: int = Form(...),
-    betta_rock: int = Form(...),
-    water_saturation: int = Form(...),
-    volume_factor: int = Form(...)
+    height: float = Form(...),
+    viscosity: float = Form(...),
+    permeability: float = Form(...),
+    porosity: float = Form(...),
+    well_radius: float = Form(...),
+    betta_oil: float = Form(...),
+    betta_water: float = Form(...),
+    betta_rock: float = Form(...),
+    water_saturation: float = Form(...),
+    pressure: float = Form(...),
+    volume_factor: float = Form(...)
     ):
     session = request.state.session
-    pass
-    
+    processing = SpiderData(
+        folder_data=session,
+        folder_name=folder_name,
+        height=height,
+        viscosity=viscosity,
+        permeability=permeability,
+        porosity=porosity,
+        well_radius=well_radius,
+        betta_oil=betta_oil,
+        betta_water=betta_water,
+        betta_rock=betta_rock,
+        water_saturation=water_saturation,
+        pressure=pressure,
+        volume_factor=volume_factor
+    ).convert_func()
+    session['spider'][folder_name]['data'] = processing
+    return RedirectResponse(url="/?message=паук+создан", status_code=303)
+
 
 @app.post("/api/toggle-param/{folder}/{param_type}")
 async def toggle_parameter(request: Request, folder: str, param_type: str):

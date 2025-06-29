@@ -10,6 +10,7 @@ body {
 .main-container {
     display: flex;
     height: 100vh;
+    position: relative;
 }
 
 /* Левая панель (управление) */
@@ -20,7 +21,7 @@ body {
     border-right: 1px solid #ddd;
     display: flex;
     flex-direction: column;
-    flex-shrink: 0;
+    position: relative;
 }
 
 /* Карточка скважины */
@@ -201,8 +202,6 @@ textarea {
 
 /* Статус бар */
 .status-bar {
-    position: sticky;
-    bottom: 0;
     height: 40px;
     background: #e9ecef;
     border-top: 1px solid #ddd;
@@ -210,7 +209,7 @@ textarea {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-top: auto;
+    margin-top: auto; /* Прижимаем к низу */
 }
 
 /* Контейнер папок */
@@ -242,6 +241,7 @@ textarea {
     flex: 1;
     padding: 20px;
     overflow-y: auto;
+    padding-bottom: 15vh;
 }
 
 .plots-vertical-container {
@@ -249,38 +249,72 @@ textarea {
     flex-direction: column;
 }
 
+ 
 .plot-wrapper {
     width: 100%;
-    margin-bottom: 100px; /* Основной контроль расстояния */
+    /* Основной контроль расстояния margin-bottom: 100px; */
     position: relative;
 }
 
 .plot-wrapper::after {
     content: "";
     display: block;
-    height: 60px; /* Дополнительный отступ */
+    height: 100px; /* Дополнительный отступ */
 }
 
 .plot-container {
     width: 100% !important;
-    height: 320px;
+    height: 320px !important;
     border: 1px solid #eee;
     border-radius: 5px;
     padding: 15px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     margin-bottom: -70px;
 }
-
-/* Принудительное переопределение стилей Plotly */
-.plotly .main-svg {
+.plot-container-spider {
     width: 100% !important;
-    height: 100% !important;
+    height: 420px !important;
+    border: 1px solid #eee;
+    border-radius: 5px;
+    padding: 15px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    margin-bottom: -70px;
+}
+/*
+.plot-container-spider {
+    width: 100% !important;
+    height: 600px !important;
+    border: 1px solid #eee;
+    border-radius: 5px;
+    padding: 15px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    margin-bottom: -70px;
+    overflow: auto; /* Важно! 
 }
 
-.plotly .svg-container {
+ Переопределяем стили Plotly для spider-графика 
+.plot-container-spider .plotly .plot-container {
     width: 100% !important;
-    height: 100% !important;
+    height: auto !important;
+    max-width: 100%; /* Ограничиваем ширину 
+    overflow: hidden; /* Скрываем выходящие за границы элементы 
 }
+
+/* Уменьшаем отступы и размеры для spider-графика 
+.plot-container-spider .js-plotly-plot .svg-container {
+    width: 100% !important;
+    height: auto !important;
+    max-width: 100%;
+}
+
+/* Если нужно уменьшить размеры графика 
+.plot-container-spider .plotly-graph-div {
+    width: 100% !important;
+    height: auto !important;
+    max-width: 100%;
+}*/
+
+
 
 /* Сообщения */
 .no-plots, .loading, .error {
@@ -317,17 +351,166 @@ textarea {
     box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
 }
 
-.input-container {
-    height: 100px;
+/* Основной контейнер */
+.spider-controls-container {
+    position: absolute;
+    bottom: 0;
+    left: 300px;
+    right: 0;
+    height: 15vh;
+    background: #f8f9fa;
+    border-top: 1px solid #ddd;
     display: flex;
     flex-direction: row;
-    position: sticky;
-
+    padding: 10px;
+    z-index: 10;
 }
 
-.input-well-list {
-    padding: 10px;
+/* Список скважин (левая часть) */
+.wells-list {
+    width: 200px;
+    border-right: 1px solid #ddd;
+    padding-right: 10px;
     display: flex;
     flex-direction: column;
-    text-align: left;
 }
+
+.wells-list h4 {
+    margin: 0 0 10px 0;
+    text-align: center;
+}
+
+.wells-container {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Параметры (центральная часть) */
+.spider-params {
+    flex: 1;
+    padding: 0 10px;
+    overflow-y: auto;
+}
+
+.spider-params h4 {
+    margin: 0 0 10px 0;
+    text-align: center;
+}
+
+.params-grid {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-content: flex-start;
+}
+
+.param-row {
+    display: flex;
+    flex-direction: column;
+    width: 100px;
+}
+
+.param-row label {
+    font-size: 14px;
+    margin-bottom: 3px;
+    text-align: center;
+}
+
+.param-row input {
+    width: 100%;
+    padding: 5px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    text-align: center;
+}
+
+/* Кнопка (правая часть) */
+.spider-action {
+    width: 120px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding-left: 10px;
+    border-left: 1px solid #ddd;
+}
+
+.create-btn {
+    background: #1c7e01;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 3px;
+    cursor: pointer;
+    width: 100%;
+}
+
+.create-btn:hover {
+    background: #156d01;
+}
+
+/* Элементы списка скважин */
+.well-item {
+    padding: 6px 10px;
+    margin: 3px 0;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    cursor: pointer;
+    text-align: center;
+    position: relative;
+}
+
+.well-item:hover {
+    background: #f0f0f0;
+}
+
+.well-item.selected {
+    background: #e6f7ff;
+    border-color: #91d5ff;
+}
+
+/* Новые стили ДОБАВЛЯЕМ ПОСЛЕ существующих */
+.well-item::after {
+    /* content: "✓"; */
+    position: absolute;
+    right: 5px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: green;
+    opacity: 0;
+    transition: opacity 0.2s;
+    font-size: 14px;
+}
+
+.well-item.has-params::after {
+    opacity: 1;
+}
+/*
+Специальные стили для spider графика
+.plot-wrapper.spider-plot {
+    margin-bottom: 120px;
+}
+
+.plot-wrapper.spider-plot .plot-container {
+    height: 400px !important;
+    padding-left: 70px;   Увеличиваем отступ слева для оси Y 
+    padding-right: 30px;  Стандартный отступ справа 
+    margin-bottom: -90px;
+    min-width: 1000px;   /* Минимальная ширина для spider графика 
+    overflow: visible !important;
+}
+
+/* Увеличиваем отступы для оси Y в spider графике 
+.plot-wrapper.spider-plot .ytick {
+    font-size: 12px;
+}
+
+/* Для обычных графиков оставляем как было 
+.plot-wrapper:not(.spider-plot) .plot-container {
+    height: 320px !important;
+    padding: 15px;
+    margin-bottom: -70px;
+}*/

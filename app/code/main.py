@@ -8,6 +8,8 @@ from starlette.responses import RedirectResponse
 import secrets
 from funcs.data_processing import TransformDate, SpiderData
 
+from fastapi.middleware.cors import CORSMiddleware
+
 from fastapi.responses import HTMLResponse
 import plotly.graph_objects as go
 from plotly.io import to_html
@@ -24,6 +26,18 @@ session_storage: Dict[str, Dict] = {}
 
 # Время жизни сессии в часах
 SESSION_EXPIRE_HOURS = 8
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:8000",
+        "http://31.31.196.98",
+        "https://optiwell.gubkin-technologys.ru"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 # Middleware для обработки сессий

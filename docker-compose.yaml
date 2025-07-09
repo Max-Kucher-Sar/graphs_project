@@ -22,11 +22,11 @@ services:
       - fastapi
     ports:
       - "80:80"
-      #- "443:443"
+      - "443:443"
     volumes:
       - ./nginx/:/etc/nginx/conf.d/
-      #- ./ssl:/etc/letsencrypt
-      #- ./app/code//static:/app/static
+      - ./nginx/ssl/:/etc/nginx/ssl/
+      - ./app/code/static/:/app/static/
     networks:
       - data-network
 

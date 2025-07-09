@@ -2,9 +2,9 @@ FROM python:3.13.2
 
 WORKDIR /app
 
-COPY ./requirments.txt /app/requirments.txt
+COPY ./requirements.txt /app/requirements.txt
 
-RUN pip install --no-cache-dir --upgrade -r /app/requirments.txt
+RUN pip install --no-cache-dir --upgrade -r /app/requirements.txt
 
 # COPY ../code /data/app
 

@@ -2,14 +2,14 @@ FROM python:3.9-alpine
 
 WORKDIR /app
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
+RUN apk update && \
+    apk add --no-cache \
         python3-dev \
-        build-essential \
-        libblas-dev \
-        liblapack-dev \
-        gfortran && \
-    rm -rf /var/lib/apt/lists/*
+        gcc \
+        musl-dev \
+        gfortran \
+        lapack-dev \
+        openblas-dev
 
 COPY ./requirements.txt /app/requirements.txt
 

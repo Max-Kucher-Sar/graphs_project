@@ -1,2 +1,6 @@
 fastapi[all]==0.95.2
-
+uvicorn==0.22.0
+jinja2==3.0.3
+numpy==1.23.5
+pandas==1.5.3
+plotly==5.13.0

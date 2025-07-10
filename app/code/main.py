@@ -31,8 +31,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:8000",
-        "http://31.31.196.98",
-        "https://optiwell.gubkin-technologys.ru"
+        "http://80.78.243.208",
+        "https://gubkin-technologys.ru"
     ],
     allow_credentials=True,
     allow_methods=["*"],

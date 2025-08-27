@@ -497,15 +497,13 @@ async def create_well_spider(
         permeability: float = Form(...),
         porosity: float = Form(...),
         well_radius: float = Form(...),
-        betta_oil: float = Form(...),
-        betta_water: float = Form(...),
-        betta_rock: float = Form(...),
-        water_saturation: float = Form(...),
+        Ct: float = Form(...),
         pressure: float = Form(...),
         volume_factor: float = Form(...)
     ):
+    
     session = request.state.session
-
+    
     if 'spider_params' not in session:
         session['spider_params'] = {}
     
@@ -515,16 +513,13 @@ async def create_well_spider(
         'permeability': permeability,
         'porosity': porosity,
         'well_radius': well_radius,
-        'betta_oil': betta_oil,
-        'betta_water': betta_water,
-        'betta_rock': betta_rock,
-        'water_saturation': water_saturation,
+        'Ct': Ct,
         'pressure': pressure,
         'volume_factor': volume_factor
     }
     
     try:
-        
+        print('начинаем функцию')
         processing = SpiderData(
             folder_data=session,
             folder_name=folder_name,
@@ -533,10 +528,7 @@ async def create_well_spider(
             permeability=permeability,
             porosity=porosity,
             well_radius=well_radius,
-            betta_oil=betta_oil,
-            betta_water=betta_water,
-            betta_rock=betta_rock,
-            water_saturation=water_saturation,
+            Ct=Ct,
             pressure=pressure,
             volume_factor=volume_factor
         ).convert_func()
@@ -551,6 +543,7 @@ async def create_well_spider(
         
         return RedirectResponse(url="/?message=Паук+успешно+создан", status_code=303)
     except Exception as e:
+        print('получаем ошибку', e)
         raise HTTPException(status_code=400, detail=str(e))
 
 # @app.post("/create-well-spider")

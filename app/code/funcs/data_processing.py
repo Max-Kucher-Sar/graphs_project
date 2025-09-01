@@ -101,7 +101,7 @@ class SpiderData:
         # self.betta_oil = betta_oil / 10 ** 9# бетта нефть
         # self.betta_water = betta_water / 10 ** 9 # бетта вода
         # self.betta_rock = betta_rock / 10 ** 9 # бетта порода
-        self.Ct = Ct
+        self.Ct = Ct / 10 ** 9
         # self.water_saturation = water_saturation # насыщение водой
         self.pressure = pressure * 101325
         self.volume_factor = volume_factor # объемный коэф
@@ -202,16 +202,32 @@ class SpiderData:
         ]
         #print(res, 'итоговая сумма ')
         first_press = list(self.data["data_storage"][wells[0]]["pressure"].values())
+        # нужно давление которые мы задали как начальное, а не которое первое встречное
 
-        const_press = first_press[0]
-
+        const_press = 300
         for value in res:
-            dp_press = const_press - value
+            dp_press = const_press + value
             dp_sum_list.append(dp_press)
         #print(dp_sum_list, 'итог')
         return dp_sum_list
 
-        
+    def ei(self, ARG):
+        ARG2 = ARG*ARG
+        ARG3 = ARG2*ARG
+        ARG4 = ARG3*ARG
+
+        if (ARG < 1):
+            return -0.57721566+0.99999193*ARG-0.24991055*ARG2+0.05519968*ARG3-0.00976004*ARG4+0.00107857*ARG*ARG4-math.log(ARG)
+        else:
+            CHIS = 0.2677737343+8.6347608925*ARG+18.0590169730*ARG2+8.5733287401*ARG3 + ARG4
+            ZNAM = 3.9584969228+21.0996530827*ARG+25.6329561486*ARG2+9.5733223454*ARG3 + ARG4
+
+            if ARG == 0 or ZNAM == 0 : 
+                return 0
+            else: 
+                return CHIS*math.exp(-ARG)/(ZNAM*ARG)
+
+
 
     def convert_func(self):
 
@@ -266,27 +282,41 @@ class SpiderData:
         дебит нужно поделить на 86400 
         {0.0: 100.0, 200.0: 60.0, 300.0: 200.0, 500.0: 200.0} таблица дебитов
         в конце расчета поделить давление на 101325 Па - атм
+
+        {0.0: 0.0, 350.0: -500.0, 470.0: -900.0, 500.0: -900.0} таблица дебитов 21 скважины
         """
         result = {}
-        DPi = self.pressure
+        dp1_lict = []
         # result[0.0] первое значение дебита - {"0.0": 300}
         # что делать с ним, пропускать первое значение? как тут (time_press - time_deb) от нуля отнимать ноль
-        for time_press, value_press in press_table.items(): 
-            sys_press = value_press * 101325
+        for time_press, value_press in press_table.items():
+
+            DPi = 0 
+            # sys_press = value_press * 101325
             for time_deb, value_deb in debit_table.items():
                 sys_deb = value_deb / 86400
                 if time_press > time_deb:
                     x = (self.well_radius ** 2) / (4 * self.pyezoprovodnost * ((time_press - time_deb) * 3600))
                     
-                    E = (math.log(1/x) - 0.5772 + x - (x**2/4) + (x**3/18) - (x**4/96) + (x**5/600))
-                    
-                    DPj = -((self.viscosity * sys_deb * self.volume_factor)/(self.porosity * self.height * 4 * math.pi)) * E
-                    
+                    # E = (math.log(1/x) - 0.5772 + x - (x**2/4) + (x**3/18) - (x**4/96) + (x**5/600))
+                    E = self.ei(x)
+
+                    DPj = -((self.viscosity * sys_deb * self.volume_factor)/(self.permeability * self.height * 4 * math.pi)) * E
+                    # DPj - используется для расчета суммы 
                     DPi += DPj
-                    result[time_press] = DPi / 101325
+    
                 else:
                     continue
-        print(result, 'результат')
+            """
+            цикл по всем остальным скважинам
+            внутри него идет цикл по дебитам соседних скважин
+            делается такое же вычисление, где вместо радиуса скважины - расстояние
+             вычесть начальное давление умноженное на Nскв - 1
+            """
+            result[time_press] = DPi / 101325
+            dp1_lict.append(DPi / 101325)
+        self.data["data_storage"]['spider']['wells'][self.folder_name]['dp1'] = dp1_lict
+        # print(result, 'результат')
         return result
         # press_flag = 0
         # result = {}

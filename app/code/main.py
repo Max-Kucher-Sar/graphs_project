@@ -32,7 +32,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:8000",
         "http://80.78.243.208",
-        "https://gubkin-technologys.ru"
+        "https://gubkin-technologies.ru"
     ],
     allow_credentials=True,
     allow_methods=["*"],

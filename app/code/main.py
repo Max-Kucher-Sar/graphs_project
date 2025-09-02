@@ -424,69 +424,6 @@ async def confirm_data(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-# @app.post("/confirm-data")
-# async def confirm_data(
-#         request: Request,
-#         folder_name: str = Form(...),
-#         data_type: str = Form(...),
-#         date_format: str = Form(...),
-#         pasted_data: str = Form(...)
-#     ):
-#     session = request.state.session
-
-#     try:
-#         date_fmt = "%d.%m.%Y %H:%M" if date_format == "datetime" else "%d.%m.%Y"
-#         lines = [line.strip() for line in pasted_data.split('\n') if line.strip()]
-#         parsed_data = {}
-
-#         if date_format == 'date':
-#             for line in lines:
-#                 parts = re.split(r'\t|,|;|\s+', line)
-#                 if len(parts) >= 2:
-#                     try:
-#                         time = datetime.strptime(parts[0], date_fmt)
-#                         value = float(parts[1].replace(',', '.'))
-#                         parsed_data[time] = value
-
-#                     except ValueError:
-#                         continue
-#         elif date_format == 'datetime':
-#             for line in lines:
-#                 line_modified = re.sub(r'(\d{2}\.\d{2}\.\d{4})\s(\d{2}:\d{2})', r'\1_\2', line)
-#                 parts = re.split(r'\t|,|;|\s+', line_modified)
-#                 parts = [p.replace('_', ' ') for p in parts]
-                
-#                 if len(parts) >= 2:
-#                     try:
-#                         time = datetime.strptime(parts[0], date_fmt)
-
-#                         value = float(parts[1].replace(',', '.'))
-#                         parsed_data[time] = value
-
-#                     except ValueError:
-#                         time_sum = parts[0] + ' ' + parts[1]
-#                         time = datetime.strptime(time_sum, date_fmt)
-#                         value = float(parts[2].replace(',', '.'))
-#                         parsed_data[time] = value
-#         # Сохраняем данные в текущей сессии
-#         session["data_storage"][folder_name][data_type] = parsed_data
-#         session["saved_flags"][folder_name][data_type] = True
-#         session["column_formats"][folder_name][data_type] = date_format
-
-#         flag = True # Флаг - True если дебит и давление присутствуют, False  - если одно из них отсутствует
-#         for key in session["data_storage"][folder_name].keys():
-#             if session["data_storage"][folder_name][key] == {}:
-#                 flag = False
-#             else:
-#                 pass
-#         if flag:
-#             session["data_storage"][folder_name] = TransformDate().upgrade_data(session["data_storage"][folder_name])
-#         else:
-#             pass
-
-#         return RedirectResponse(url=f"/?message=Данные+сохранены", status_code=303)
-#     except Exception as e:
-#         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/create-well-spider")
 async def create_well_spider(
@@ -546,41 +483,6 @@ async def create_well_spider(
         print('получаем ошибку', e)
         raise HTTPException(status_code=400, detail=str(e))
 
-# @app.post("/create-well-spider")
-# async def create_well_spider(
-#     request: Request,
-#     folder_name: str = Form(...),
-#     height: float = Form(...),
-#     viscosity: float = Form(...),
-#     permeability: float = Form(...),
-#     porosity: float = Form(...),
-#     well_radius: float = Form(...),
-#     betta_oil: float = Form(...),
-#     betta_water: float = Form(...),
-#     betta_rock: float = Form(...),
-#     water_saturation: float = Form(...),
-#     pressure: float = Form(...),
-#     volume_factor: float = Form(...)
-#     ):
-#     session = request.state.session
-#     processing = SpiderData(
-#         folder_data=session,
-#         folder_name=folder_name,
-#         height=height,
-#         viscosity=viscosity,
-#         permeability=permeability,
-#         porosity=porosity,
-#         well_radius=well_radius,
-#         betta_oil=betta_oil,
-#         betta_water=betta_water,
-#         betta_rock=betta_rock,
-#         water_saturation=water_saturation,
-#         pressure=pressure,
-#         volume_factor=volume_factor
-#     ).convert_func()
-#     session['spider'][folder_name]['data'] = processing
-#     return RedirectResponse(url="/?message=паук+создан", status_code=303)
-
 
 @app.post("/api/toggle-param/{folder}/{param_type}")
 async def toggle_parameter(request: Request, folder: str, param_type: str):
@@ -634,52 +536,29 @@ async def delete_folder(request: Request, folder_name: str):
 
     if folder_name in session["data_storage"]:
         del session["data_storage"][folder_name]
-        print('1')
-
-        if folder_name in session["data_storage"]["spider"]["wells"]:
-            del session["data_storage"]["spider"]["wells"][folder_name]
-            print('2')
+        
+        if "spider" in session["data_storage"].keys():
+            if folder_name in session["data_storage"]["spider"]["wells"]:
+                del session["data_storage"]["spider"]["wells"][folder_name]
     
         if folder_name in session["saved_flags"]:
             del session["saved_flags"][folder_name]
-            print('3')
 
-        if folder_name in session["saved_flags"]["spider"]["wells"]:
-            del session["saved_flags"]["spider"]["wells"][folder_name]
-            print('4')
+        if "spider" in session["saved_flags"].keys():
+            if folder_name in session["saved_flags"]["spider"]["wells"]:
+                del session["saved_flags"]["spider"]["wells"][folder_name]
 
-        if folder_name in session["column_formats"]:
-            del session["column_formats"][folder_name]
-            print('5')
+        if "column_formats" in session.keys():
+            if folder_name in session["column_formats"]:
+                del session["column_formats"][folder_name]
 
-        if folder_name in session['spider_params']:
-            del session['spider_params'][folder_name]
-            print('6')
+        if "spider_params" in session.keys():
+            if folder_name in session['spider_params']:
+                del session['spider_params'][folder_name]
 
-        if folder_name in session['spider']:
-            del session['spider'][folder_name]
-            print('7')
-
-    # if folder_name in session["data_storage"]:
-    #     print('есть в session["data_storage"]')
-    #     # Удаляем скважину из всех spider'ов (если это не сам spider)
-    #     if session["data_storage"][folder_name].get('type') != 'spider':
-    #         for spider_name, spider_data in session["data_storage"].items():
-    #             if spider_data.get('type') == 'spider' and folder_name in spider_data.get('wells', {}):
-    #                 del session["data_storage"][spider_name]["wells"][folder_name]
-    #                 if folder_name in session["saved_flags"][spider_name]["wells"]:
-    #                     del session["saved_flags"][spider_name]["wells"][folder_name]
-
-    #     # Удаляем основные данные
-    #     del session["data_storage"][folder_name]
-    #     del session['spider_params'][folder_name]
-    #     del session['spider'][folder_name]
-        
-    #     # Удаляем только если существует (для spider'а этого ключа нет)
-    #     if folder_name in session["saved_flags"]:
-    #         del session["saved_flags"][folder_name]
-    #     if folder_name in session.get("column_formats", {}):
-    #         del session["column_formats"][folder_name]
+        if "spider" in session.keys():
+            if folder_name in session['spider']:
+                del session['spider'][folder_name]
 
         return {
             "status": "success",

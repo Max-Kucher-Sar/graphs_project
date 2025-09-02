@@ -293,18 +293,25 @@ class SpiderData:
 
             DPi = 0 
             # sys_press = value_press * 101325
-            for time_deb, value_deb in debit_table.items():
-                sys_deb = value_deb / 86400
-                if time_press > time_deb:
-                    x = (self.well_radius ** 2) / (4 * self.pyezoprovodnost * ((time_press - time_deb) * 3600))
+            # for time_deb, value_deb in debit_table.items():
+            for i in range(len(debit_table_times)):
+                if i == 0:
+                    sys_deb = debit_table[debit_table_times[i]] / 86400
+                    print(1)
+                else:
+                    print(2)
+                    sys_deb = (debit_table[debit_table_times[i]] - debit_table[debit_table_times[i-1]]) / 86400
+
+                if time_press > debit_table_times[i]:
+                    x = (self.well_radius ** 2) / (4 * self.pyezoprovodnost * ((time_press - debit_table_times[i]) * 3600))
                     
                     # E = (math.log(1/x) - 0.5772 + x - (x**2/4) + (x**3/18) - (x**4/96) + (x**5/600))
                     E = self.ei(x)
-
+                    
                     DPj = -((self.viscosity * sys_deb * self.volume_factor)/(self.permeability * self.height * 4 * math.pi)) * E
                     # DPj - используется для расчета суммы 
                     DPi += DPj
-    
+
                 else:
                     continue
             """
@@ -318,61 +325,4 @@ class SpiderData:
         self.data["data_storage"]['spider']['wells'][self.folder_name]['dp1'] = dp1_lict
         # print(result, 'результат')
         return result
-        # press_flag = 0
-        # result = {}
-        # dp1_lict = []
-        # for i in range(len(debit_table_times)):
-        #     if i == len(debit_table_times) - 1:
-        #         current_time_deb = debit_table_times[i]
-        #         next_time_deb = debit_table_times[i]
-        #     else:
-        #         current_time_deb = debit_table_times[i]
-        #         next_time_deb = debit_table_times[i + 1]
-        #     for time_press, value_press in press_table.items():
-        #         if time_press == 0:
-        #             press_flag = value_press
-        #             result[0.0] = 0
-        #             #dp1_dict[0.0] = 0
-        #             continue
-        #         elif time_press <= next_time_deb:
-        #             if time_press not in result.keys():
-        #                 # if time_press == 100.05:
-        #                     #print(list(result.keys())[-1])
-
-        #                 if (time_press -  current_time_deb) < 1:
-        #                     DP1 = None
-        #                     dp1_lict.append(DP1)
-        #                     result[time_press] = None
-        #                 else:
-        #                     # prev_press = press_flag if press_flag != 0 else new_prev_press
-        #                     # press_flag = 0
-        #                     current_press = value_press
-        #                     # if time_press == 100.05:
-        #                     #     a = (time_press - current_time_deb) * 3600
-        #                     #     b = 4 * self.pyezoprovodnost * a
-        #                     #     c = self.well_radius ** 2
-        #                     #     v = c / b
-        #                     #     print(a, b, c, v, self.pyezoprovodnost)
-        #                     x = (self.well_radius ** 2) / (4 * self.pyezoprovodnost * ((time_press - current_time_deb) * 3600))
-        #                     E = (math.log(1/x) - 0.5772 + x - (x**2/4) + (x**3/18) - (x**4/96) + (x**5/600))
-        #                     DP1 = (((debit_table[current_time_deb] * self.volume_factor / 86400) * self.viscosity / (4 * math.pi * self.permeability * self.height)) * E / 1000000 / 0.098)
-        #                     DP_kappa = press_flag - current_press
-        #                     #print(f'Результаты: X={x}, E={E}, DP1={DP1}, DP_kappa={DP_kappa}', self.folder_name)
-        #                     #print(time_press, next_time_deb, current_time_deb)
-        #                     res_press = abs(DP_kappa - DP1) / DP_kappa * 100
-        #                     dp1_lict.append(DP1)
-        #                     result[time_press] = res_press
-        #                     #dp1_dict[time_press]
-                        
-        #                 # new_prev_press = current_press
-        #             else:
-        #                 pass
-        #         else:
-        #             break
-
-        # self.data["data_storage"]['spider']['wells'][self.folder_name]['dp1'] = dp1_lict
-        
-        # return result #, dp1_list
-
-
 

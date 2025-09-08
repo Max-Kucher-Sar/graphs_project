@@ -7,15 +7,20 @@ from typing import Optional
 from src.database.PSQLmodels import UserModel, User
 from pydantic import BaseModel
 import hashlib
+import os
+from dotenv import load_dotenv
 
 class Token(BaseModel):
     access_token: str
     token_type: str
 
+load_dotenv()
+
+
 # Настройки
-SECRET_KEY = "your-secret-key-change-in-production"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+SECRET_KEY = os.getenv('SECRET_KEY')
+ALGORITHM = os.getenv('ALGORITHM')
+ACCESS_TOKEN_EXPIRE_MINUTES = os.getenv('ACCESS_TOKEN_EXPIRE_MINUTES')
 
 pwd_context = CryptContext(schemes=["sha256_crypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="http://localhost:8000/api/users/login")

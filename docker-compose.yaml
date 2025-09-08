@@ -4,16 +4,34 @@ services:
 
   fastapi:
     build:
-      context: ./app/python/
+      context: ./app
       dockerfile: Dockerfile
-    # env_file:
-    #   - .env
+    container_name: fastapi_graph
+    env_file:
+      - .env
     volumes:
-      - ./app/code/:/app/
+      - ./app/:/app/
     ports:
       - "8000:8000"
+    depends_on:
+      - postgres
     networks: 
         - data-network
+  
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgresql_graph
+    environment:
+      POSTGRES_DB: "pdb"
+      POSTGRES_USER: ${user}
+      POSTGRES_PASSWORD: ${pswd}
+    volumes:
+      - ./pSQL/data:/var/lib/postgresql/data
+      #- ./pSQL/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - data-network
 
   nginx_project:
     image: nginx:alpine
@@ -26,7 +44,7 @@ services:
     volumes:
       - ./nginx/:/etc/nginx/conf.d/
       - ./nginx/ssl/:/etc/nginx/ssl/
-      - ./app/code/static/:/app/static/
+      # - ./app/code/static/:/app/static/
     networks:
       - data-network
 

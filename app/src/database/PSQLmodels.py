@@ -157,11 +157,13 @@ class WellModel:
         return self.session.scalars(self.session.query(Well).filter(Well.user_id == self.user_id)).all()
 
 class DataModel:
-    def __init__(self, data, id: int = 0, well_id: int = 0, user_id: int = 0):
+    def __init__(self, data=[], id: int = 0, well_id: int = 0, user_id: int = 0, is_debit: bool = False, is_press: bool = False):
         self.session = db
         self.id = id
         self.well_id = well_id
         self.user_id = user_id
+        self.is_debit = is_debit
+        self.is_press = is_press
         self.data = data
 
     def upload_primary_debit(self, debit_table):
@@ -218,5 +220,17 @@ class DataModel:
         finally:
             self.session.close()
     
-    
+    def get_primary_data(self):
+        if self.is_debit == True:
+            result = self.session.query(Data.debit_data).join(Well, Data.well_id == Well.id).filter(Data.well_id == self.well_id).filter(Well.user_id == self.user_id).first()
+            if result:
+                return result[0]
+            else:
+                return None
+        elif self.is_press == True:
+            result = self.session.query(Data.press_data).join(Well, Data.well_id == Well.id).filter(Data.well_id == self.well_id).filter(Well.user_id == self.user_id).first()
+            if result:
+                return result[0]
+            else:
+                return None
     

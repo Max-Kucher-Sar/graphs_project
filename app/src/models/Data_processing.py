@@ -82,9 +82,14 @@ class Data:
 
         return well_operation
         
-            
+    def get_primary_data(self):
+        return DataModel(well_id=self.well_id, is_debit=self.is_debit, is_press=self.is_press, user_id=self.user_id).get_primary_data()
 
 
 @data_router.put("/upload_primary_data") 
 async def upload_primary_data(well_id: int, is_debit: bool = False, is_press: bool = False, user_id: int = Depends(get_current_user_id), data: str = Form(...)):
     return Data(well_id=well_id, user_id=user_id, is_debit=is_debit, is_press=is_press).confirm_data(data)
+
+@data_router.get("/get_primary_data") 
+async def get_primary_data(well_id: int, is_debit: bool = False, is_press: bool = False, user_id: int = Depends(get_current_user_id)):
+    return Data(well_id=well_id, user_id=user_id, is_debit=is_debit, is_press=is_press).get_primary_data()

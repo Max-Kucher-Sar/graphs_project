@@ -9,7 +9,7 @@ data_router = APIRouter(prefix="/data", tags=["Данные"])
 
 
 class Data:
-    def __init__(self, well_id: int = 0, user_id: int = 0, date_format: str = '', is_debit=False, is_press=False):
+    def __init__(self, well_id: int = 0, user_id: int = 0, date_format: str = '', is_debit: bool = False, is_press: bool = False):
         self.well_id = well_id
         self.user_id = user_id
         self.is_debit = is_debit
@@ -35,13 +35,13 @@ class Data:
                 parsed_data[dt_obj] = value
                 original_dates[time_str] = value
             except ValueError:
-                continue
-        if is_debit:
+                continue 
+        if self.is_debit == True:
             hours_debit = self.get_hours(parsed_data)
             debit_table = self.create_table_time_debit(hours_debit)
-        
-        # сохранить оригинальные даты и таблицу дебитов
-        return True
+            return DataModel(data=original_dates, well_id=self.well_id).upload_primary_debit(debit_table)
+        elif self.is_press == True:
+            return DataModel(data=original_dates, well_id=self.well_id).upload_primary_press()
     
     def get_hours(self, time_dict):
         """
@@ -86,5 +86,5 @@ class Data:
 
 
 @data_router.put("/upload_primary_data") 
-async def upload_primary_data(well_id: int, is_debit=False, is_press=False, user_id: int = Depends(get_current_user_id), data: str = Form(...)):
+async def upload_primary_data(well_id: int, is_debit: bool = False, is_press: bool = False, user_id: int = Depends(get_current_user_id), data: str = Form(...)):
     return Data(well_id=well_id, user_id=user_id, is_debit=is_debit, is_press=is_press).confirm_data(data)

@@ -8,6 +8,7 @@ from sqlalchemy.sql.expression import func
 from sqlalchemy import inspect, text
 from sqlalchemy import update, insert, delete
 from typing import List, Optional, Dict, Tuple
+from sqlalchemy.orm.attributes import flag_modified
 
 import json
 import datetime
@@ -156,11 +157,66 @@ class WellModel:
         return self.session.scalars(self.session.query(Well).filter(Well.user_id == self.user_id)).all()
 
 class DataModel:
-    def __init__(self, id: int = 0, well_id: int = 0, user_id: int = 0):
+    def __init__(self, data, id: int = 0, well_id: int = 0, user_id: int = 0):
         self.session = db
         self.id = id
         self.well_id = well_id
         self.user_id = user_id
+        self.data = data
 
+    def upload_primary_debit(self, debit_table):
+        try:
+            existing_debit_data = self.session.query(Data).filter(Data.well_id == self.well_id).first()
+            if existing_debit_data:
+                existing_debit_data.debit_data = self.data
+                existing_debit_data.debit_table = debit_table
+                flag_modified(existing_debit_data, 'debit_data')
+                flag_modified(existing_debit_data, 'debit_table')
+                self.session.commit()
+                return True
+            else:
+                new_data = Data(
+                    well_id=self.well_id,
+                    debit_data=self.data,
+                    press_data={},
+                    debit_table=debit_table,
+                    dpi={},
+                    spider_graph={}
+                )
+                self.session.add(new_data)
+                self.session.commit()
+                return True
+        except Exception as e:
+            self.session.rollback()
+            return {"msg": f"ошибка при загрузке: {e}"}
+        finally:
+            self.session.close()
+
+    def upload_primary_press(self):
+        try:
+            existing_press_data = self.session.query(Data).filter(Data.well_id == self.well_id).first()
+            if existing_press_data:
+                existing_press_data.press_data = self.data
+                flag_modified(existing_debit_data, 'press_data')
+                self.session.commit()
+                return True
+            else:
+                new_data = Data(
+                    well_id=self.well_id,
+                    debit_data={},
+                    press_data=self.data,
+                    debit_table={},
+                    dpi={},
+                    spider_graph={}
+                )
+                self.session.add(new_data)
+                self.session.commit()
+                return True
+        except Exception as e:
+            self.session.rollback()
+            return {"msg": f"ошибка при загрузке: {e}"}
+        finally:
+            self.session.close()
+    
     
     

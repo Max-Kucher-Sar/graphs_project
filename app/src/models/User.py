@@ -105,16 +105,3 @@ async def get_all_users(current_user: User = Depends(get_current_admin_user)):
     """Получение всех пользователей - только для администраторов"""
     result = User().get_all_users()
     return result
-
-@users_router.post("/create_well")
-async def create_well(
-    well_data: dict,
-    user_id: int = Depends(get_current_user_id)
-):
-    """Создание скважины с привязкой к пользователю"""
-    # Лицензия уже проверена при входе, можно свободно работать
-    return {
-        "message": "Скважина создана",
-        "user_id": user_id,
-        "well_data": well_data
-    }

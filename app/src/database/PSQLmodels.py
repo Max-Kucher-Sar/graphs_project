@@ -47,7 +47,7 @@ class Well(Base):
 
     data = relationship('Data', back_populates='well', cascade="all, delete-orphan", passive_deletes=True)
 
-    tech_data = relationship('WellTechnicalData', back_populates='well', cascade="all, delete-orphan", passive_deletes=True)
+    # tech_data = relationship('WellTechnicalData', back_populates='well', cascade="all, delete-orphan", passive_deletes=True)
 
 class Data(Base):
     __tablename__ = 'data'

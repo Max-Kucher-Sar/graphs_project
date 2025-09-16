@@ -47,6 +47,8 @@ class Well(Base):
 
     data = relationship('Data', back_populates='well', cascade="all, delete-orphan", passive_deletes=True)
 
+    tech_data = relationship('WellTechnicalData', back_populates='well', cascade="all, delete-orphan", passive_deletes=True)
+
 class Data(Base):
     __tablename__ = 'data'
     id = Column(Integer, primary_key=True)
@@ -58,6 +60,40 @@ class Data(Base):
     spider_graph = Column(JSONB, default=dict)
 
     well = relationship("Well", back_populates="data")
+
+# class WellTechnicalData(Base):
+#     __tablename__ = 'welltechnicaldata'
+#     id = Column(Integer, primary_key=True)
+#     well_id = Column(Integer, ForeignKey('wells.id', ondelete='CASCADE'), nullable=False)
+#     pressure = Column(Integer, nullable=False)
+#     flow = Column(Integer, nullable=False)
+#     thickness = Column(Integer, nullable=False)
+#     viscosity = Column(Integer, nullable=False)
+#     permeability = Column(Integer, nullable=False)
+#     porosity = Column(Integer, nullable=False)
+#     radius = Column(Integer, nullable=False)
+#     compressibility = Column(Integer, nullable=False)
+#     water_saturation = Column(Integer, nullable=False)
+#     volume_factor = Column(Integer, nullable=False)
+
+#     well = relationship("Well", back_populates="tech_data")
+
+# class UserTechData(Base):
+#     __tablename__ = 'usertechdata'
+#     id = Column(Integer, primary_key=True)
+#     well_id = Column(Integer, ForeignKey('wells.id', ondelete='CASCADE'), nullable=False)
+#     user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+#     pressure = Column(String, nullable=False)
+#     flow = Column(String, nullable=False)
+#     thickness = Column(String, nullable=False)
+#     viscosity = Column(String, nullable=False)
+#     permeability = Column(String, nullable=False)
+#     porosity = Column(String, nullable=False)
+#     radius = Column(String, nullable=False)
+#     compressibility = Column(String, nullable=False)
+#     water_saturation = Column(String, nullable=False)
+#     volume_factor = Column(String, nullable=False)
+
 
 
 engine = create_engine(f'postgresql+psycopg2://{user}:{pswd}@postgres/pdb', pool_size=50, max_overflow=0)

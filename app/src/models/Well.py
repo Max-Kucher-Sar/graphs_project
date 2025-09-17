@@ -25,10 +25,10 @@ class Well:
 async def get_all_wells(user_id: int = Depends(get_current_user_id)):
     return Well(user_id=user_id).get_wells()
 
-@wells_router.put("/add_well")
+@wells_router.put("/add_well/{well_name}")
 async def add_new_well(well_name: str, user_id: int = Depends(get_current_user_id)):
     return Well(name=well_name, user_id=user_id).add_new_well()
 
-@wells_router.delete("/remove_well")
+@wells_router.delete("/remove_well/{well_id}")
 async def remove_well(well_id: int, user_id: int = Depends(get_current_user_id)):
     return Well(id=well_id, user_id=user_id).remove_well()

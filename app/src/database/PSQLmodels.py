@@ -34,6 +34,9 @@ class User(Base):
     admin = Column(Boolean, nullable=True)
 
     wells = relationship('Well', back_populates='user', cascade="all, delete-orphan", passive_deletes=True)
+    user_tech_data = relationship('UserTechData', back_populates='user', cascade="all, delete-orphan", passive_deletes=True)
+    
+
 
 class Well(Base):
     __tablename__ = 'wells'
@@ -47,7 +50,8 @@ class Well(Base):
 
     data = relationship('Data', back_populates='well', cascade="all, delete-orphan", passive_deletes=True)
 
-    # tech_data = relationship('WellTechnicalData', back_populates='well', cascade="all, delete-orphan", passive_deletes=True)
+    user_tech_data = relationship('UserTechData', back_populates='well', cascade="all, delete-orphan", passive_deletes=True)
+    well_tech_data = relationship('WellTechData', back_populates='well', cascade="all, delete-orphan", passive_deletes=True)
 
 class Data(Base):
     __tablename__ = 'data'
@@ -61,22 +65,6 @@ class Data(Base):
 
     well = relationship("Well", back_populates="data")
 
-# class WellTechnicalData(Base):
-#     __tablename__ = 'welltechnicaldata'
-#     id = Column(Integer, primary_key=True)
-#     well_id = Column(Integer, ForeignKey('wells.id', ondelete='CASCADE'), nullable=False)
-#     pressure = Column(Integer, nullable=False)
-#     flow = Column(Integer, nullable=False)
-#     thickness = Column(Integer, nullable=False)
-#     viscosity = Column(Integer, nullable=False)
-#     permeability = Column(Integer, nullable=False)
-#     porosity = Column(Integer, nullable=False)
-#     radius = Column(Integer, nullable=False)
-#     compressibility = Column(Integer, nullable=False)
-#     water_saturation = Column(Integer, nullable=False)
-#     volume_factor = Column(Integer, nullable=False)
-
-#     well = relationship("Well", back_populates="tech_data")
 
 # class UserTechData(Base):
 #     __tablename__ = 'usertechdata'
@@ -93,6 +81,26 @@ class Data(Base):
 #     compressibility = Column(String, nullable=False)
 #     water_saturation = Column(String, nullable=False)
 #     volume_factor = Column(String, nullable=False)
+
+#     well = relationship("Well", back_populates="user_tech_data")
+#     user = relationship("User", back_populates="user_tech_data")
+
+# class WellTechData(Base):
+#     __tablename__ = 'welltechdata'
+#     id = Column(Integer, primary_key=True)
+#     well_id = Column(Integer, ForeignKey('wells.id', ondelete='CASCADE'), nullable=False)
+#     pressure = Column(Integer, nullable=False)
+#     flow = Column(Integer, nullable=False)
+#     thickness = Column(Integer, nullable=False)
+#     viscosity = Column(Integer, nullable=False)
+#     permeability = Column(Integer, nullable=False)
+#     porosity = Column(Integer, nullable=False)
+#     radius = Column(Integer, nullable=False)
+#     compressibility = Column(Integer, nullable=False)
+#     water_saturation = Column(Integer, nullable=False)
+#     volume_factor = Column(Integer, nullable=False)
+
+#     well = relationship("Well", back_populates="well_tech_data")
 
 
 

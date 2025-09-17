@@ -81,7 +81,7 @@ async def add_new_user(
     result = User().add_new_user(data)
     return result
 
-@users_router.post("/update_user_info")
+@users_router.post("/update_user_info/{user_id}")
 async def update_user_info(
     user_id: int,
     data: UserCreate,
@@ -91,7 +91,7 @@ async def update_user_info(
     result = User(id=user_id).update_user_info(data)
     return result
 
-@users_router.delete("/delete_user")
+@users_router.delete("/delete_user/{user_id}")
 async def delete_user(
     user_id: int,
     current_user: User = Depends(get_current_admin_user)  # Только админы!

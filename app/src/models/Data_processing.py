@@ -1,12 +1,37 @@
-from src.database.PSQLmodels import DataModel
+from src.database.PSQLmodels import DataModel, UserTechDataModel, WellTechDataModel
 from fastapi import APIRouter, Body, Depends, HTTPException, status, Form
 from src.models.Auth import get_current_user_id
+from pydantic import BaseModel
 
 import re
 from datetime import datetime
 data_router = APIRouter(prefix="/data", tags=["Данные"])
 
+class UserUnitsCreate(BaseModel):
+    id: int
+    pressure: str
+    flow: str
+    thickness: str
+    viscosity: str
+    permeability: str
+    porosity: str
+    radius: str
+    compressibility: str
+    water_saturation: str
+    volume_factor: str
 
+class WellMeasuresCreate(BaseModel):
+    id: int
+    pressure: int
+    flow: int
+    thickness: int
+    viscosity: int
+    permeability: int
+    porosity: int
+    radius: int
+    compressibility: int
+    water_saturation: int
+    volume_factor: int
 
 class Data:
     def __init__(self, well_id: int = 0, user_id: int = 0, date_format: str = '', is_debit: bool = False, is_press: bool = False):
@@ -85,6 +110,19 @@ class Data:
     def get_primary_data(self):
         return DataModel(well_id=self.well_id, is_debit=self.is_debit, is_press=self.is_press, user_id=self.user_id).get_primary_data()
 
+    # настройки пользователя
+    def update_units(self, data):
+        return UserTechDataModel(data=data.__dict__, user_id=self.user_id).update_units()
+    
+    def get_user_units(self):
+        return UserTechDataModel(user_id=self.user_id).get_user_units()
+    
+    # ВРЕМЕННО РУЧКА значения для паука
+    def update_measures(self, data):
+        return WellTechDataModel(data=data.__dict__, well_id=self.well_id).update_measures()
+    
+    def get_well_measures(self):
+        return WellTechDataModel(well_id=self.well_id).get_well_measures()
 
 @data_router.put("/upload_primary_data") 
 async def upload_primary_data(well_id: int, is_debit: bool = False, is_press: bool = False, user_id: int = Depends(get_current_user_id), data: str = Form(...)):
@@ -93,3 +131,20 @@ async def upload_primary_data(well_id: int, is_debit: bool = False, is_press: bo
 @data_router.get("/get_primary_data") 
 async def get_primary_data(well_id: int, is_debit: bool = False, is_press: bool = False, user_id: int = Depends(get_current_user_id)):
     return Data(well_id=well_id, user_id=user_id, is_debit=is_debit, is_press=is_press).get_primary_data()
+
+@data_router.post("/update_user_units")
+async def update_user_units(data: UserUnitsCreate, user_id: int = Depends(get_current_user_id)):
+    return Data(user_id=user_id).update_units(data=data)
+
+@data_router.get("/get_user_units")
+async def get_user_units(user_id: int = Depends(get_current_user_id)):
+    return Data(user_id=user_id).get_user_units()
+
+# ВРЕМЕННО
+@data_router.post("/update_well_units/{well_id}")
+async def update_well_units(data: WellMeasuresCreate, well_id: int):
+    return Data(well_id=well_id).update_measures(data=data)
+
+@data_router.get("/get_well_units/{well_id}")
+async def get_well_units(well_id: int):
+    return Data(well_id=well_id).get_well_measures()

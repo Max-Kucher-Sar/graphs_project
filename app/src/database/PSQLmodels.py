@@ -34,7 +34,7 @@ class User(Base):
     admin = Column(Boolean, nullable=True)
 
     wells = relationship('Well', back_populates='user', cascade="all, delete-orphan", passive_deletes=True)
-    user_tech_data = relationship('UserTechData', back_populates='user', cascade="all, delete-orphan", passive_deletes=True)
+    # user_tech_data = relationship('UserTechData', back_populates='user', cascade="all, delete-orphan", passive_deletes=True)
     
 
 
@@ -50,8 +50,8 @@ class Well(Base):
 
     data = relationship('Data', back_populates='well', cascade="all, delete-orphan", passive_deletes=True)
 
-    user_tech_data = relationship('UserTechData', back_populates='well', cascade="all, delete-orphan", passive_deletes=True)
-    well_tech_data = relationship('WellTechData', back_populates='well', cascade="all, delete-orphan", passive_deletes=True)
+    # user_tech_data = relationship('UserTechData', back_populates='well', cascade="all, delete-orphan", passive_deletes=True)
+    # well_tech_data = relationship('WellTechData', back_populates='well', cascade="all, delete-orphan", passive_deletes=True)
 
 class Data(Base):
     __tablename__ = 'data'

@@ -10,28 +10,24 @@ data_router = APIRouter(prefix="/data", tags=["Данные"])
 class UserUnitsCreate(BaseModel):
     id: int
     pressure: str
-    flow: str
     thickness: str
     viscosity: str
     permeability: str
     porosity: str
     radius: str
     compressibility: str
-    water_saturation: str
     volume_factor: str
 
 class WellMeasuresCreate(BaseModel):
     id: int
-    pressure: int
-    flow: int
-    thickness: int
-    viscosity: int
-    permeability: int
-    porosity: int
-    radius: int
-    compressibility: int
-    water_saturation: int
-    volume_factor: int
+    pressure: float
+    thickness: float
+    viscosity: float
+    permeability: float
+    porosity: float
+    radius: float
+    compressibility: float
+    volume_factor: float
 
 
 class Data:
@@ -140,12 +136,14 @@ class Data:
     def get_user_units(self):
         return UserTechDataModel(user_id=self.user_id).get_user_units()
     
-    # ВРЕМЕННО РУЧКА значения для паука
-    def update_measures(self, data):
-        return WellTechDataModel(data=data.__dict__, well_id=self.well_id).update_measures()
+    def create_spider(self, data):
+        return DataModel(data=data.__dict__, well_id=self.well_id).create_spider()
     
     def get_well_measures(self):
         return WellTechDataModel(well_id=self.well_id).get_well_measures()
+    
+    def get_spider_data(self):
+        return DataModel(well_id=self.well_id).get_spider_data()
 
 @data_router.put("/upload_primary_data") 
 async def upload_primary_data(well_id: int, data_debit: str = Form(...), data_press: str = Form(...),user_id: int = Depends(get_current_user_id)):
@@ -163,10 +161,13 @@ async def update_user_units(data: UserUnitsCreate, user_id: int = Depends(get_cu
 async def get_user_units(user_id: int = Depends(get_current_user_id)):
     return Data(user_id=user_id).get_user_units()
 
-# ВРЕМЕННО
-@data_router.post("/update_well_units/{well_id}")
-async def update_well_units(data: WellMeasuresCreate, well_id: int):
-    return Data(well_id=well_id).update_measures(data=data)
+@data_router.post("/create_spider/{well_id}")
+async def create_spider(data: WellMeasuresCreate, well_id: int):
+    return Data(well_id=well_id).create_spider(data=data)
+
+@data_router.get("/get_spider_data/{well_id}")
+async def get_spider_data(well_id: int):
+    return Data(well_id=well_id).get_spider_data()
 
 @data_router.get("/get_well_units/{well_id}")
 async def get_well_units(well_id: int):

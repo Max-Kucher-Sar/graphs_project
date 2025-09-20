@@ -11,10 +11,11 @@ from typing import List, Optional, Dict, Tuple
 from sqlalchemy.orm.attributes import flag_modified
 
 import json
-import datetime
+from datetime import datetime
 import hashlib
 import os
 from dotenv import load_dotenv
+import math
 
 from passlib.context import CryptContext
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -70,14 +71,12 @@ class UserTechData(Base):
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     pressure = Column(String, nullable=True)
-    flow = Column(String, nullable=True)
     thickness = Column(String, nullable=True)
     viscosity = Column(String, nullable=True)
     permeability = Column(String, nullable=True)
     porosity = Column(String, nullable=True)
     radius = Column(String, nullable=True)
     compressibility = Column(String, nullable=True)
-    water_saturation = Column(String, nullable=True)
     volume_factor = Column(String, nullable=True)
 
     user = relationship("User", back_populates="user_tech_data")
@@ -87,14 +86,12 @@ class WellTechData(Base):
     id = Column(Integer, primary_key=True)
     well_id = Column(Integer, ForeignKey('wells.id', ondelete='CASCADE'), nullable=False)
     pressure = Column(Integer, nullable=True)
-    flow = Column(Integer, nullable=True)
     thickness = Column(Integer, nullable=True)
     viscosity = Column(Integer, nullable=True)
     permeability = Column(Integer, nullable=True)
     porosity = Column(Integer, nullable=True)
     radius = Column(Integer, nullable=True)
     compressibility = Column(Integer, nullable=True)
-    water_saturation = Column(Integer, nullable=True)
     volume_factor = Column(Integer, nullable=True)
 
     well = relationship("Well", back_populates="well_tech_data")
@@ -320,6 +317,115 @@ class DataModel:
             else:
                 return None
 
+    def create_spider(self):
+        pressure = self.data['pressure']
+        thickness = self.data['thickness']
+        viscosity = self.data['viscosity']
+        permeability = self.data['permeability']
+        porosity = self.data['porosity']
+        radius = self.data['radius']
+        compressibility = self.data['compressibility']
+        volume_factor = self.data['volume_factor']
+        pyezoprovodnost = permeability / ((viscosity * compressibility) * porosity)
+
+        # Сохраняем изменения
+        WellTechDataModel(data=self.data, well_id=self.well_id).update_measures()
+
+        try:
+            # берем скважину где есть давление
+            press_well = self.session.query(Well.id).filter(Well.is_press == True).scalar()
+            data_for_processing = []
+            if self.well_id == press_well:
+                print(1)
+                data_bd = self.session.query(Data.press_data, Data.debit_table).filter(Data.well_id == self.well_id).first() 
+                press_data = self.get_hours(data_bd[0]) # переводим дату в часы
+                data_for_processing = [press_data, data_bd[1]]
+                
+            else:
+                print(2)
+                press_data = self.session.query(Data.press_data).filter(Data.well_id == press_well).scalar()
+                debit_table_data = self.session.query(Data.debit_table).filter(Data.well_id == self.well_id).scalar()
+                press_data = self.get_hours(press_data) # переводим дату в часы
+                data_for_processing = [press_data, debit_table_data]
+            
+            res_spider = {}
+            dpi = []
+            debit_table_times = [float(k) for k, v in data_for_processing[1].items()]
+
+            for time_press, value_press in data_for_processing[0].items():
+                time_press = float(time_press)
+                DPi = 0 
+                for i in range(len(debit_table_times)):
+                    to_str = str(debit_table_times[i])
+                    if i == 0:
+                        sys_deb = data_for_processing[1][to_str] / 86400
+                    else:
+                        to_str_2 = str(debit_table_times[i-1])
+                        sys_deb = (data_for_processing[1][to_str] - data_for_processing[1][to_str_2]) / 86400
+                    
+                    if time_press > debit_table_times[i]:
+                        x = (radius ** 2) / (4 * pyezoprovodnost * ((time_press - debit_table_times[i]) * 3600))
+                        E = self.ei(x)
+                        
+                        DPj = -((viscosity * sys_deb * volume_factor)/(permeability * thickness * 4 * math.pi)) * E
+                        # DPj - используется для расчета суммы 
+                        DPi += DPj
+
+                    else:
+                        continue
+
+                res_spider[time_press] = DPi / 101325
+                dpi.append(DPi / 101325)
+            
+            self.session.execute(update(Data).where(Data.well_id == self.well_id).values(dpi = dpi, spider_graph = res_spider))
+            self.session.commit()
+            return True
+        except Exception as e:
+            self.session.rollback()
+            return {"msg": f"ошибка при расчете паука: {e}"}
+        finally:
+            self.session.close()
+
+    def get_hours(self, time_dict):
+        """
+        Возвращает словарь, где дата переведена в часы
+        """
+        hours_dict = {} # новый словарь с часами вместо даты
+        time_format = ''
+
+        first_point = min(time_dict.keys()) # берем минимальное время
+        if ":" in first_point[:-2]:
+            time_format = "%d.%m.%Y %H:%M"
+        else:
+            time_format = "%d.%m.%Y"
+        first_point =  datetime.strptime(first_point, time_format)
+        for time, value in time_dict.items():
+            time = datetime.strptime(time, time_format)
+            delta = time - first_point # получаем разницу во времени
+            hours = delta.total_seconds() / 3600 # переводим в часы
+            hours_dict[hours] = value
+        
+        return hours_dict
+
+    def ei(self, ARG):
+        ARG2 = ARG*ARG
+        ARG3 = ARG2*ARG
+        ARG4 = ARG3*ARG
+
+        if (ARG < 1):
+            return -0.57721566+0.99999193*ARG-0.24991055*ARG2+0.05519968*ARG3-0.00976004*ARG4+0.00107857*ARG*ARG4-math.log(ARG)
+        else:
+            CHIS = 0.2677737343+8.6347608925*ARG+18.0590169730*ARG2+8.5733287401*ARG3 + ARG4
+            ZNAM = 3.9584969228+21.0996530827*ARG+25.6329561486*ARG2+9.5733223454*ARG3 + ARG4
+
+            if ARG == 0 or ZNAM == 0 : 
+                return 0
+            else: 
+                return CHIS*math.exp(-ARG)/(ZNAM*ARG)
+
+    def get_spider_data(self):
+        return self.session.query(Data.spider_graph).filter(Data.well_id == self.well_id).scalar()
+
 class UserTechDataModel:
     def __init__(self, data=[], user_id: int = 0):
         self.session = db
@@ -411,8 +517,9 @@ class WellTechDataModel:
                 return well_measures
             else:
                 max_id = self.session.query(func.max(WellTechData.id)).scalar() or 0
+                new_id = max_id + 1
                 new_measures = WellTechData(
-                    id=max_id,
+                    id=new_id,
                     well_id=self.well_id,
                     pressure=None,
                     flow=None,
@@ -426,7 +533,7 @@ class WellTechDataModel:
                     volume_factor=None
                 )
                 empty_measures = {
-                    'id':max_id,
+                    'id':new_id,
                     'pressure':None,
                     'flow':None,
                     'thickness':None,

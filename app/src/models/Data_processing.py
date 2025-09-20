@@ -33,6 +33,7 @@ class WellMeasuresCreate(BaseModel):
     water_saturation: int
     volume_factor: int
 
+
 class Data:
     def __init__(self, well_id: int = 0, user_id: int = 0, date_format: str = '', is_debit: bool = False, is_press: bool = False):
         self.well_id = well_id
@@ -41,32 +42,54 @@ class Data:
         self.is_press = is_press
         self.date_format = date_format # datetime или date
 
-    def confirm_data(self, data):
+    def confirm_data(self, data_debit, data_press): # data = {"well_id": int, "debit_data": str, "press_data": False (или str)}
         parsed_data = {} # для расчета таблицы дебитов
         original_dates = {} # для обычных графиков
 
         pattern = r'(\d{2}\.\d{2}\.\d{4}(?:\s\d{1,2}:\d{2})?)[\t,; ]+([\d,]+\.?\d*)'
         
-        matches = re.findall(pattern, data)
-        
-        for time_str, value_str in matches:
-            try:
-                value = float(value_str.replace(',', '.'))
-                if ':' in time_str:
-                    self.date_format = "%d.%m.%Y %H:%M"
-                else:
-                    self.date_format = "%d.%m.%Y"
-                dt_obj = datetime.strptime(time_str, self.date_format)
-                parsed_data[dt_obj] = value
-                original_dates[time_str] = value
-            except ValueError:
-                continue 
-        if self.is_debit == True:
+        # matches = re.findall(pattern, data)
+        if data_debit != '':
+            parsed_data = {} # для расчета таблицы дебитов
+            original_dates = {} # для обычных графиков
+            matches = re.findall(pattern, data_debit)
+            for time_str, value_str in matches:
+                try:
+                    value = float(value_str.replace(',', '.'))
+                    if ':' in time_str:
+                        self.date_format = "%d.%m.%Y %H:%M"
+                    else:
+                        self.date_format = "%d.%m.%Y"
+                    dt_obj = datetime.strptime(time_str, self.date_format)
+                    parsed_data[dt_obj] = value
+                    original_dates[time_str] = value
+                except ValueError:
+                    continue
             hours_debit = self.get_hours(parsed_data)
             debit_table = self.create_table_time_debit(hours_debit)
-            return DataModel(data=original_dates, well_id=self.well_id).upload_primary_debit(debit_table)
-        elif self.is_press == True:
-            return DataModel(data=original_dates, well_id=self.well_id).upload_primary_press()
+            DataModel(data=original_dates, well_id=self.well_id).upload_primary_debit(debit_table) 
+        else:
+            pass
+        if data_press != '':
+            # parsed_data = {} # для расчета таблицы дебитов
+            original_dates = {} # для обычных графиков
+            matches = re.findall(pattern, data_press)
+            for time_str, value_str in matches:
+                try:
+                    value = float(value_str.replace(',', '.'))
+                    # if ':' in time_str:
+                    #     self.date_format = "%d.%m.%Y %H:%M"
+                    # else:
+                    #     self.date_format = "%d.%m.%Y"
+                    # dt_obj = datetime.strptime(time_str, self.date_format)
+                    # parsed_data[dt_obj] = value
+                    original_dates[time_str] = value
+                except ValueError:
+                    continue
+            DataModel(data=original_dates, well_id=self.well_id).upload_primary_press()
+        else:
+            pass
+        return True
     
     def get_hours(self, time_dict):
         """
@@ -125,8 +148,8 @@ class Data:
         return WellTechDataModel(well_id=self.well_id).get_well_measures()
 
 @data_router.put("/upload_primary_data") 
-async def upload_primary_data(well_id: int, is_debit: bool = False, is_press: bool = False, user_id: int = Depends(get_current_user_id), data: str = Form(...)):
-    return Data(well_id=well_id, user_id=user_id, is_debit=is_debit, is_press=is_press).confirm_data(data)
+async def upload_primary_data(well_id: int, data_debit: str = Form(...), data_press: str = Form(...),user_id: int = Depends(get_current_user_id)):
+    return Data(well_id=well_id).confirm_data(data_debit=data_debit, data_press=data_press)
 
 @data_router.get("/get_primary_data") 
 async def get_primary_data(well_id: int, is_debit: bool = False, is_press: bool = False, user_id: int = Depends(get_current_user_id)):

@@ -123,8 +123,10 @@ class UserModel:
             if not existing_user:
                 # Хэшируем пароль
                 hashed_password = hashlib.md5(data.password.encode()).hexdigest()
-                
+                max_id = self.session.query(func.max(User.id)).scalar() or 0
+                new_id = max_id + 1 
                 new_user = User(
+                    id=new_id,
                     login=data.login,
                     password=hashed_password,
                     licence_date=data.licence_date,
@@ -195,7 +197,10 @@ class WellModel:
             existing_well = self.session.query(Well).filter(Well.name == self.name, Well.user_id == self.user_id).first()
             if existing_well:
                 return {"msg": "Скважина уже существует"}
+            max_id = self.session.query(func.max(Well.id)).scalar() or 0
+            new_id = max_id + 1
             new_well = Well(
+                id=new_id,
                 name=self.name,
                 is_press=self.is_press,
                 is_debit=self.is_debit,
@@ -245,10 +250,14 @@ class DataModel:
                 existing_debit_data.debit_table = debit_table
                 flag_modified(existing_debit_data, 'debit_data')
                 flag_modified(existing_debit_data, 'debit_table')
+                self.session.execute(update(Well).where(Well.id == self.well_id).values(is_debit = True))
                 self.session.commit()
                 return True
             else:
+                max_id = self.session.query(func.max(Data.id)).scalar() or 0
+                new_id = max_id + 1
                 new_data = Data(
+                    id = new_id,
                     well_id=self.well_id,
                     debit_data=self.data,
                     press_data={},
@@ -257,6 +266,7 @@ class DataModel:
                     spider_graph={}
                 )
                 self.session.add(new_data)
+                self.session.execute(update(Well).where(Well.id == self.well_id).values(is_debit = True))
                 self.session.commit()
                 return True
         except Exception as e:
@@ -270,11 +280,15 @@ class DataModel:
             existing_press_data = self.session.query(Data).filter(Data.well_id == self.well_id).first()
             if existing_press_data:
                 existing_press_data.press_data = self.data
-                flag_modified(existing_debit_data, 'press_data')
+                flag_modified(existing_press_data, 'press_data')
+                self.session.execute(update(Well).where(Well.id == self.well_id).values(is_press = True))
                 self.session.commit()
                 return True
             else:
+                max_id = self.session.query(func.max(Data.id)).scalar() or 0
+                new_id = max_id + 1
                 new_data = Data(
+                    id=new_id,
                     well_id=self.well_id,
                     debit_data={},
                     press_data=self.data,
@@ -283,6 +297,7 @@ class DataModel:
                     spider_graph={}
                 )
                 self.session.add(new_data)
+                self.session.execute(update(Well).where(Well.id == self.well_id).values(is_press = True))
                 self.session.commit()
                 return True
         except Exception as e:

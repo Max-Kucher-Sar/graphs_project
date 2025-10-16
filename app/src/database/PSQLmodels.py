@@ -803,10 +803,11 @@ class WellTechDataModel:
     def get_well_measures(self, user_id: Optional[int] = 0):
         try:
             well_measures = self.session.query(WellTechData).filter(WellTechData.well_id == self.well_id).first()
-            if well_measures.pressure is None or well_measures.thickness is None:
-                return well_measures
             
-            elif well_measures:
+            
+            if well_measures:
+                if well_measures.pressure is None or well_measures.thickness is None:
+                    return well_measures
                 # Берем СИ юзера
                 user_units = UserTechDataModel(user_id=user_id).get_user_units(well_id=self.well_id)
                 result = convert_to_user_si(values=well_measures.__dict__, measures=user_units.__dict__)

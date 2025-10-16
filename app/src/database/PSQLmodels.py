@@ -593,8 +593,8 @@ class DataModel:
         volume_factor = self.data['volume_factor']
         pyezoprovodnost = permeability / ((viscosity * compressibility) * porosity)
 
-        # Сохраняем изменения
-        WellTechDataModel(data=self.data, well_id=self.well_id).update_measures()
+        # # Сохраняем изменения
+        # WellTechDataModel(data=self.data, well_id=self.well_id).update_measures()
 
         try:
             # берем скважину где есть давление

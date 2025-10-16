@@ -141,7 +141,7 @@ class Data:
         return WellTechDataModel(data=data.__dict__, user_id=self.user_id).update_measures()
     
     def get_user_units(self):
-        return UserTechDataModel(user_id=self.user_id).get_user_units(well_id=None)
+        return UserTechDataModel(user_id=self.user_id).get_user_units(well_id=0)
     
     def create_spider(self):
         return DataModel(well_id=self.well_id).create_spider()

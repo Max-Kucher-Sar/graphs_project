@@ -2,6 +2,7 @@ from src.database.PSQLmodels import DataModel, UserTechDataModel, WellTechDataMo
 from fastapi import APIRouter, Body, Depends, HTTPException, status, Form
 from src.models.Auth import get_current_user_id
 from pydantic import BaseModel
+from typing import Optional
 
 import re
 from datetime import datetime
@@ -9,6 +10,8 @@ data_router = APIRouter(prefix="/data", tags=["Данные"])
 
 class UserUnitsCreate(BaseModel):
     id: int
+    well_id: Optional[int] = None
+    debit: Optional[str] = None
     pressure: str
     thickness: str
     viscosity: str
@@ -20,6 +23,7 @@ class UserUnitsCreate(BaseModel):
 
 class WellMeasuresCreate(BaseModel):
     id: int
+    well_id: int
     pressure: float
     thickness: float
     viscosity: float
@@ -133,15 +137,27 @@ class Data:
     def update_units(self, data):
         return UserTechDataModel(data=data.__dict__, user_id=self.user_id).update_units()
     
-    def get_user_units(self):
-        return UserTechDataModel(user_id=self.user_id).get_user_units()
+    def update_measures(self, data):
+        return WellTechDataModel(data=data.__dict__, user_id=self.user_id).update_measures()
     
-    def create_spider(self, data):
-        return DataModel(data=data.__dict__, well_id=self.well_id).create_spider()
+    def get_user_units(self):
+        return UserTechDataModel(user_id=self.user_id).get_user_units(well_id=None)
+    
+    def create_spider(self):
+        return DataModel(well_id=self.well_id).create_spider()
     
     def get_well_measures(self):
         return WellTechDataModel(well_id=self.well_id).get_well_measures()
     
+    def get_units_and_measures(self):
+        units = UserTechDataModel(user_id=self.user_id).get_user_units(well_id=self.well_id)
+        measures = WellTechDataModel(well_id=self.well_id).get_well_measures(user_id=self.user_id)
+        result = {
+            "units": units,
+            "measures": measures
+        }
+        return result
+
     def get_spider_data(self):
         return DataModel(well_id=self.well_id).get_spider_data()
 
@@ -157,18 +173,22 @@ async def get_primary_data(well_id: int, is_debit: bool = False, is_press: bool 
 async def update_user_units(data: UserUnitsCreate, user_id: int = Depends(get_current_user_id)):
     return Data(user_id=user_id).update_units(data=data)
 
+@data_router.post("/update_measures")
+async def update_measures(data: WellMeasuresCreate, user_id: int = Depends(get_current_user_id)):
+    return Data(user_id=user_id).update_measures(data=data)
+
 @data_router.get("/get_user_units")
 async def get_user_units(user_id: int = Depends(get_current_user_id)):
     return Data(user_id=user_id).get_user_units()
 
 @data_router.post("/create_spider/{well_id}")
-async def create_spider(data: WellMeasuresCreate, well_id: int):
-    return Data(well_id=well_id).create_spider(data=data)
+async def create_spider(well_id: int):
+    return Data(well_id=well_id).create_spider()
 
 @data_router.get("/get_spider_data/{well_id}")
 async def get_spider_data(well_id: int):
     return Data(well_id=well_id).get_spider_data()
 
-@data_router.get("/get_well_units/{well_id}")
-async def get_well_units(well_id: int):
-    return Data(well_id=well_id).get_well_measures()
+@data_router.get("/get_units_and_measures/{well_id}")
+async def get_units_and_measures(well_id: int, user_id: int = Depends(get_current_user_id)):
+    return Data(well_id=well_id, user_id=user_id).get_units_and_measures()

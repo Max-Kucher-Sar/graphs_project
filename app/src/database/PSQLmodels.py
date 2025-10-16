@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, Text, Boolean, String, DateTime, JSON, MetaData, Table, ForeignKey, desc, func, Date, or_, and_, over
+from sqlalchemy import create_engine, Column, Integer, Text, Boolean, String, DateTime, Numeric, JSON, MetaData, Table, ForeignKey, desc, func, Date, or_, and_, over
 from sqlalchemy.orm import sessionmaker, Session, relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import SQLAlchemyError
@@ -52,6 +52,7 @@ class Well(Base):
     data = relationship('Data', back_populates='well', cascade="all, delete-orphan", passive_deletes=True)
     
     well_tech_data = relationship('WellTechData', back_populates='well', cascade="all, delete-orphan", passive_deletes=True)
+    user_tech_data = relationship('UserTechData', back_populates='well', cascade="all, delete-orphan", passive_deletes=True)
 
 class Data(Base):
     __tablename__ = 'data'
@@ -70,7 +71,9 @@ class UserTechData(Base):
     __tablename__ = 'usertechdata'
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    well_id = Column(Integer, ForeignKey('wells.id', ondelete='CASCADE'), nullable=True)
     pressure = Column(String, nullable=True)
+    debit = Column(String, nullable=True)
     thickness = Column(String, nullable=True)
     viscosity = Column(String, nullable=True)
     permeability = Column(String, nullable=True)
@@ -80,19 +83,20 @@ class UserTechData(Base):
     volume_factor = Column(String, nullable=True)
 
     user = relationship("User", back_populates="user_tech_data")
+    well = relationship("Well", back_populates="user_tech_data")
 
 class WellTechData(Base):
     __tablename__ = 'welltechdata'
     id = Column(Integer, primary_key=True)
     well_id = Column(Integer, ForeignKey('wells.id', ondelete='CASCADE'), nullable=False)
-    pressure = Column(Integer, nullable=True)
-    thickness = Column(Integer, nullable=True)
-    viscosity = Column(Integer, nullable=True)
-    permeability = Column(Integer, nullable=True)
-    porosity = Column(Integer, nullable=True)
-    radius = Column(Integer, nullable=True)
-    compressibility = Column(Integer, nullable=True)
-    volume_factor = Column(Integer, nullable=True)
+    pressure = Column(Numeric(40, 25), nullable=True)
+    thickness = Column(Numeric(40, 25), nullable=True)
+    viscosity = Column(Numeric(40, 25), nullable=True)
+    permeability = Column(Numeric(40, 25), nullable=True)
+    porosity = Column(Numeric(40, 25), nullable=True)
+    radius = Column(Numeric(40, 25), nullable=True)
+    compressibility = Column(Numeric(40, 25), nullable=True)
+    volume_factor = Column(Numeric(40, 25), nullable=True)
 
     well = relationship("Well", back_populates="well_tech_data")
 
@@ -104,6 +108,267 @@ Base.metadata.create_all(engine)
 SessionLocal = sessionmaker(autoflush=True, bind=engine)
 db = SessionLocal()
 
+# def convert_to_si(debit_info: Optional[dict()] = None, values: Optional[dict()] = None, measures: Optional[dict()] = None, press_info: Optional[dict()] = None):
+#         pressure = {"тех.атм": 98066.5, "psi": 6894.76, "МПа": 1000000, "физ.атм": 101325, "kПа-1": 1000} # умножить чтобы перевести в СИ
+#         thickness = {"ft": 3.28084} # разделить чтобы перевести в СИ
+#         viscosity = {"сП": 0.001, "cp": 0.001} # умножить чтобы перевести в СИ
+#         permeability = {"мД": 9.86923e-16, "md": 9.86923e-16, "Дарси": 9.86923e-13} # умножить чтобы перевести в СИ
+#         porosity = {"%": 0.01} # умножить чтобы перевести в СИ
+#         radius = {"ft": 3.28084} # разделить чтобы перевести в СИ
+#         compressibility = {"psi-1": 0.0014505, "МПа-1": 0.000001, "физ.атм-1": 0.0000098694, "кПа-1": 0.001, "кг/см2": 0.00000000101972} # умножить чтобы перевести в СИ
+#         debit = {"м3/сут": 0.0000115740740740741, "bbl/d": 0.00000184} # умножить чтобы перевести в СИ
+#         param_list_str = ['pressure', 'thickness', 'viscosity', 'permeability', 'porosity', 'radius', 'compressibility']
+#         param_list = [pressure, thickness, viscosity, permeability, porosity, radius, compressibility]
+
+        
+
+#         try:
+#             if values and measures:
+#                 result = dict()
+#             """
+#             из measures по ключу param получаем название параметра, потом это название используем как ключ параметра и достаем числовое значение
+#             это числовое значение нужно либо умножить, либо разделить на число, которое содержится в self.data по ключу param.
+#             В заключении переопределить в self.data по ключу param полученное значение
+#             """
+#                 for i in range(len(param_list)):
+#                     user_param_name = measures[param_list_str[i]]
+#                     coef_for_param = param_list[i][user_param_name]
+#                     value_param = values[param_list_str[i]]
+#                     if param_list_str[i] == 'radius' or param_list_str[i] == 'thickness':
+#                         result[param_list_str[i]] = value_param / coef_for_param
+#                     else:
+#                         result[param_list_str[i]] = value_param * coef_for_param
+#                 return result
+#             elif debit_info:
+#                 for user_unit, user_value in debit_info.items():
+#                     result_value = user_value * debit[user_unit]
+#                 return result_value
+#             elif press_info:
+#                 for user_unit, user_value in press_info.items():
+#                     result_value = user_value * pressure[user_unit]
+#                 return result_value
+#         except Exception as e:
+#             return {"err_msg": f"Ошибка при конвертировании параметра в удобные нам единицы: {e}"}
+
+def convert_to_si(
+        debit_info: Optional[dict] = None,
+        values: Optional[dict] = None, 
+        measures: Optional[dict] = None, 
+        press_info: Optional[dict] = None
+    ):
+    # Словари коэффициентов преобразования
+    pressure = {"тех.атм": 98066.5, "psi": 6894.76, "МПа": 1000000, "физ.атм": 101325, "kПа-1": 1000}
+    thickness = {"ft": 3.28084, "m": 1.0}  # добавил метры
+    viscosity = {"сП": 0.001, "cp": 0.001, "Па·с": 1.0}
+    permeability = {"мД": 9.86923e-16, "md": 9.86923e-16, "Дарси": 9.86923e-13, "м²": 1.0}
+    porosity = {"%": 0.01, "доли": 1.0}
+    radius = {"ft": 3.28084, "m": 1.0}
+    compressibility = {
+        "psi-1": 0.0014505, "МПа-1": 0.000001, "физ.атм-1": 0.0000098694, 
+        "кПа-1": 0.001, "кг/см2": 0.00000000101972, "Па⁻¹": 1.0
+    }
+    volume_factor = {"м³/м³": 1.0, "bbl/STB": 1.0}  # добавил словарь
+    debit = {"м3/сут": 0.0000115740740740741, "bbl/d": 0.00000184}
+    
+    # Параметры, которые требуют деления (а не умножения)
+    DIVISION_PARAMS = {'radius', 'thickness'}
+    
+    try:
+        if values and measures:
+            result = {}
+            
+            # Обрабатываем основные параметры
+            for param_name in ['pressure', 'thickness', 'viscosity', 'permeability', 
+                            'porosity', 'radius', 'compressibility', 'volume_factor']:
+                
+                if param_name not in measures or param_name not in values:
+                    continue  # пропускаем отсутствующие параметры
+                
+                user_unit = measures[param_name]
+                value = values[param_name]
+                
+                # Получаем соответствующий словарь коэффициентов
+                coeff_dict = locals().get(param_name, {})
+                
+                if user_unit not in coeff_dict:
+                    # Если единица измерения не найдена, используем исходное значение
+                    result[param_name] = value
+                    continue
+                
+                coefficient = coeff_dict[user_unit]
+                
+                # Применяем преобразование
+                if param_name in DIVISION_PARAMS:
+                    result[param_name] = value / coefficient
+                else:
+                    result[param_name] = value * coefficient
+            
+            return result
+            
+        elif debit_info:
+            result = {}
+            for user_unit, user_value in debit_info.items():
+                if user_unit in debit:
+                    result[user_unit] = user_value * debit[user_unit]
+                else:
+                    result[user_unit] = user_value  # неизвестная единица
+            return result
+            
+        elif press_info:
+            result = {}
+            for user_unit, user_value in press_info.items():
+                if user_unit in pressure:
+                    result[user_unit] = user_value * pressure[user_unit]
+                else:
+                    result[user_unit] = user_value  # неизвестная единица
+            return result
+            
+        else:
+            return {"err_msg": "Не переданы данные для конвертации"}
+            
+    except Exception as e:
+        return {"err_msg": f"Ошибка при конвертировании параметра в удобные нам единицы: {e}"}
+
+# def convert_to_user_si(debit_info: Optional[dict()] = None, values: Optional[dict()] = None, measures: Optional[dict()] = None, press_info: Optional[dict()] = None):
+#         pressure = {"тех.атм": 98066.5, "psi": 0.000145038, "МПа": 1000000, "физ.атм": 0.00000986923, "kПа-1": 1000} # разделить чтобы перевести в СИ
+#         thickness = {"ft": 3.28084} # умножить чтобы перевести в СИ
+#         viscosity = {"сП": 0.001, "cp": 0.001} # разделить чтобы перевести в СИ
+#         permeability = {"мД": 9.86923e-16, "md": 9.86923e-16, "Дарси": 9.86923e-13} # разделить чтобы перевести в СИ
+#         porosity = {"%": 0.01} # разделить чтобы перевести в СИ
+#         radius = {"ft": 3.28084} # умножить чтобы перевести в СИ
+#         compressibility = {"psi-1": 0.0014505, "МПа-1": 0.000001, "физ.атм-1": 0.0000098694, "кПа-1": 0.001, "кг/см2": 0.00000000101972} # разделить чтобы перевести в СИ
+#         debit = {"м3/сут": 0.0000115740740740741, "bbl/d": 1.8399999999999998e-6} # разделить чтобы перевести в СИ
+#         param_list_str = ['pressure', 'thickness', 'viscosity', 'permeability', 'porosity', 'radius', 'compressibility']
+#         param_list = [pressure, thickness, viscosity, permeability, porosity, radius, compressibility]
+
+    
+#         try:
+#             if values and measures:
+#                 result = dict()
+#             """
+#             из measures по ключу param получаем название параметра, потом это название используем как ключ параметра и достаем числовое значение
+#             это числовое значение нужно либо умножить, либо разделить на число, которое содержится в self.data по ключу param.
+#             В заключении переопределить в self.data по ключу param полученное значение
+#             """
+#                 for i in range(len(param_list)):
+#                     user_param_name = measures[param_list_str[i]]
+#                     coef_for_param = param_list[i][user_param_name]
+#                     value_param = values[param_list_str[i]]
+#                     if param_list_str[i] == 'radius' or param_list_str[i] == 'thickness':
+#                         result[param_list_str[i]] = value_param * coef_for_param
+#                     else:
+#                         result[param_list_str[i]] = value_param / coef_for_param
+#                 return result
+#             elif debit_info:
+#                 for user_unit, user_value in debit_info.items():
+#                     result_value = user_value / debit[user_unit]
+#                     return result_value
+#             elif press_info:
+#                 for user_unit, user_value in press_info.items():
+#                     result_value = user_value / pressure[user_unit]
+#                     return result_value
+#         except Exception as e:
+#             return {"err_msg": f"Ошибка при конвертировании параметра в удобные нам единицы: {e}"}
+
+def convert_to_user_si(
+        debit_info: Optional[dict] = None,
+        values: Optional[dict] = None, 
+        measures: Optional[dict] = None, 
+        press_info: Optional[dict] = None
+    ):
+    # Конвертируем все коэффициенты в float
+    pressure = {
+        "тех.атм": 98066.5, 
+        "psi": 6894.76, 
+        "МПа": 1000000.0, 
+        "физ.атм": 101325.0, 
+        "kPa": 1000.0,
+        "Pa": 1.0
+    }
+    thickness = {"ft": 3.28084, "m": 1.0}
+    viscosity = {"сП": 0.001, "cp": 0.001, "Pa·s": 1.0}
+    permeability = {
+        "мД": 9.86923e-16, 
+        "md": 9.86923e-16, 
+        "Дарси": 9.86923e-13, 
+        "m²": 1.0
+    }
+    porosity = {"%": 0.01, "доли": 1.0}
+    radius = {"ft": 3.28084, "m": 1.0}
+    compressibility = {
+        "psi⁻¹": 0.0014505, 
+        "МПа⁻¹": 1e-6, 
+        "физ.атм⁻¹": 9.8694e-6, 
+        "kPa⁻¹": 0.001, 
+        "кг/см²": 1.01972e-9, 
+        "Pa⁻¹": 1.0
+    }
+    volume_factor = {"м³/м³": 1.0, "bbl/STB": 1.0}
+    debit = {
+        "м³/сут": 1.157407e-5, 
+        "bbl/d": 1.84e-6, 
+        "m³/s": 1.0
+    }
+    
+    MULTIPLICATION_PARAMS = {'radius', 'thickness'}
+    
+    try:
+        if values and measures:
+            result = {"id": values['id'], "well_id": values['well_id']}
+            
+            # Конвертируем Decimal в float
+            float_values = {k: float(v) if hasattr(v, '__float__') else v for k, v in values.items()}
+            
+            for param_name in ['pressure', 'thickness', 'viscosity', 'permeability', 
+                             'porosity', 'radius', 'compressibility', 'volume_factor']:
+                
+                if param_name not in measures or param_name not in float_values:
+                    continue
+                
+                user_unit = measures[param_name]
+                value = float_values[param_name]
+                
+                coeff_dict = locals().get(param_name, {})
+                
+                if user_unit not in coeff_dict:
+                    result[param_name] = value
+                    continue
+                
+                coefficient = coeff_dict[user_unit]
+                
+                if param_name in MULTIPLICATION_PARAMS:
+                    result[param_name] = value * coefficient
+                else:
+                    result[param_name] = value / coefficient
+            
+            return result
+            
+        elif debit_info:
+            result = {}
+            for user_unit, user_value in debit_info.items():
+                if user_unit in debit:
+                    # Конвертируем Decimal в float если нужно
+                    value = float(user_value) if hasattr(user_value, '__float__') else user_value
+                    result[user_unit] = value / debit[user_unit]
+                else:
+                    result[user_unit] = float(user_value) if hasattr(user_value, '__float__') else user_value
+            return result
+            
+        elif press_info:
+            result = {}
+            for user_unit, user_value in press_info.items():
+                if user_unit in pressure:
+                    value = float(user_value) if hasattr(user_value, '__float__') else user_value
+                    result[user_unit] = value / pressure[user_unit]
+                else:
+                    result[user_unit] = float(user_value) if hasattr(user_value, '__float__') else user_value
+            return result
+            
+        else:
+            return {"err_msg": "Не переданы данные для конвертации"}
+            
+    except Exception as e:
+        return {"err_msg": f"Ошибка при конвертировании параметра в пользовательские единицы: {e}"}
 
 class UserModel:
     def __init__(self, id: int = 0, login: str = '', password : str = '', licence_date: str = '', admin=False):
@@ -336,13 +601,11 @@ class DataModel:
             press_well = self.session.query(Well.id).filter(Well.is_press == True).scalar()
             data_for_processing = []
             if self.well_id == press_well:
-                print(1)
                 data_bd = self.session.query(Data.press_data, Data.debit_table).filter(Data.well_id == self.well_id).first() 
                 press_data = self.get_hours(data_bd[0]) # переводим дату в часы
                 data_for_processing = [press_data, data_bd[1]]
                 
             else:
-                print(2)
                 press_data = self.session.query(Data.press_data).filter(Data.well_id == press_well).scalar()
                 debit_table_data = self.session.query(Data.debit_table).filter(Data.well_id == self.well_id).scalar()
                 press_data = self.get_hours(press_data) # переводим дату в часы
@@ -358,10 +621,10 @@ class DataModel:
                 for i in range(len(debit_table_times)):
                     to_str = str(debit_table_times[i])
                     if i == 0:
-                        sys_deb = data_for_processing[1][to_str] / 86400
+                        sys_deb = data_for_processing[1][to_str] / 86400 # из м3/д в м3/сек
                     else:
                         to_str_2 = str(debit_table_times[i-1])
-                        sys_deb = (data_for_processing[1][to_str] - data_for_processing[1][to_str_2]) / 86400
+                        sys_deb = (data_for_processing[1][to_str] - data_for_processing[1][to_str_2]) / 86400 # позже все будет в СИ ми убрать деление
                     
                     if time_press > debit_table_times[i]:
                         x = (radius ** 2) / (4 * pyezoprovodnost * ((time_press - debit_table_times[i]) * 3600))
@@ -374,7 +637,7 @@ class DataModel:
                     else:
                         continue
 
-                res_spider[time_press] = DPi / 101325
+                res_spider[time_press] = DPi / 101325 # из Па в физ.атм
                 dpi.append(DPi / 101325)
             
             self.session.execute(update(Data).where(Data.well_id == self.well_id).values(dpi = dpi, spider_graph = res_spider))
@@ -424,6 +687,7 @@ class DataModel:
                 return CHIS*math.exp(-ARG)/(ZNAM*ARG)
 
     def get_spider_data(self):
+        # тут пересчитывать на те единицы, которые выбрал пользователь
         return self.session.query(Data.spider_graph).filter(Data.well_id == self.well_id).scalar()
 
 class UserTechDataModel:
@@ -431,58 +695,78 @@ class UserTechDataModel:
         self.session = db
         self.data = data
         self.user_id = user_id
-            
+
     def update_units(self):
         try:
-            result = self.session.execute(update(UserTechData).where(UserTechData.user_id == self.user_id).values(**self.data))
-            self.session.commit()
-            if result:
-                return True
+            if self.data['well_id'] is None:
+                result = self.session.execute(update(UserTechData).where(UserTechData.id == self.data['id'], UserTechData.user_id == self.user_id).values(**self.data))
+                self.session.commit()
+                if result:
+                    return True
+                else:
+                    return False
             else:
-                return False
+                existing_note = self.session.query(UserTechData).filter(UserTechData.user_id == self.user_id, UserTechData.well_id == self.data['well_id']).first()
+                if existing_note:
+                    self.data['id'] = existing_note.id
+                    result = self.session.execute(update(UserTechData).where(UserTechData.id == self.data['id'], UserTechData.user_id == self.user_id, UserTechData.well_id == self.data['well_id']).values(**self.data))
+                    self.session.commit()
+                    return True
+                else:
+                    max_id = self.session.query(func.max(UserTechData.id)).scalar() or 0
+                    new_id = max_id + 1
+                    self.data['id'] = new_id
+                    self.data['user_id'] = self.user_id
+                    new_well_units = UserTechData(**self.data)
+                    self.session.add(new_well_units)
+                    self.session.commit()
+                    return True
         except Exception as e:
             self.session.rollback()
             return {"msg": f"ошибка при обновлении: {e}"}
         finally:
             self.session.close()
 
-    def get_user_units(self):
+    def get_user_units(self, well_id):
         try:
-            user_units = self.session.query(UserTechData).filter(UserTechData.user_id == self.user_id).first()
+            user_units = self.session.query(UserTechData).filter(UserTechData.user_id == self.user_id, UserTechData.well_id == well_id).first()
             if user_units:
                 return user_units
             else:
-                max_id = self.session.query(func.max(UserTechData.id)).scalar() or 0
-                new_units = UserTechData(
-                    id=max_id,
-                    user_id=self.user_id,
-                    pressure=None,
-                    flow=None,
-                    thickness=None,
-                    viscosity=None,
-                    permeability=None,
-                    porosity=None,
-                    radius=None,
-                    compressibility=None,
-                    water_saturation=None,
-                    volume_factor=None
-                )
-                empty_units = {
-                    'id':max_id,
-                    'pressure':None,
-                    'flow':None,
-                    'thickness':None,
-                    'viscosity':None,
-                    'permeability':None,
-                    'porosity':None,
-                    'radius':None,
-                    'compressibility':None,
-                    'water_saturation':None,
-                    'volume_factor':None
-                }
-                self.session.add(new_units)
-                self.session.commit()
-                return empty_units
+                user_units = self.session.query(UserTechData).filter(UserTechData.user_id == self.user_id, UserTechData.well_id == None).first()
+                if user_units:
+                    return user_units
+                else:
+                    max_id = self.session.query(func.max(UserTechData.id)).scalar() or 0
+                    new_id = max_id + 1
+                    new_units = UserTechData(
+                        id=new_id,
+                        user_id=self.user_id,
+                        well_id=None,
+                        pressure=None,
+                        thickness=None,
+                        viscosity=None,
+                        permeability=None,
+                        porosity=None,
+                        radius=None,
+                        compressibility=None,
+                        volume_factor=None
+                    )
+                    empty_units = {
+                        'id':new_id,
+                        'well_id':None,
+                        'pressure':None,
+                        'thickness':None,
+                        'viscosity':None,
+                        'permeability':None,
+                        'porosity':None,
+                        'radius':None,
+                        'compressibility':None,
+                        'volume_factor':None
+                    }
+                    self.session.add(new_units)
+                    self.session.commit()
+                    return empty_units
         except Exception as e:
             self.session.rollback()
             return {"msg": f"ошибка при загрузке: {e}"}
@@ -490,15 +774,21 @@ class UserTechDataModel:
             self.session.close()
 
 class WellTechDataModel:
-    def __init__(self, data=[], well_id: int = 0):
+    def __init__(self, data=[], well_id: int = 0, user_id: int = 0):
         self.session = db
         self.data = data
         self.well_id = well_id
-            
-    def update_measures(self):
-        # print(self.data.__dict__)
+        self.user_id = user_id
+
+    
+    def update_measures(self): # , measures: Optional[dict()] = None
         try:
-            result = self.session.execute(update(WellTechData).where(WellTechData.well_id == self.well_id).values(**self.data))
+            self.well_id = self.data.pop("well_id")
+            # Берем СИ юзера
+            user_units = self.session.query(UserTechData).filter(UserTechData.user_id == self.user_id).first()
+            convert_result = convert_to_si(values=self.data, measures=user_units.__dict__)
+            print(convert_result)
+            result = self.session.execute(update(WellTechData).where(WellTechData.well_id == self.well_id).values(**convert_result))
             self.session.commit()
             if result:
                 return True
@@ -510,11 +800,17 @@ class WellTechDataModel:
         finally:
             self.session.close()
 
-    def get_well_measures(self):
+    def get_well_measures(self, user_id: Optional[int] = 0):
         try:
             well_measures = self.session.query(WellTechData).filter(WellTechData.well_id == self.well_id).first()
-            if well_measures:
+            if well_measures.pressure is None or well_measures.thickness is None:
                 return well_measures
+            
+            elif well_measures:
+                # Берем СИ юзера
+                user_units = UserTechDataModel(user_id=user_id).get_user_units(well_id=self.well_id)
+                result = convert_to_user_si(values=well_measures.__dict__, measures=user_units.__dict__)
+                return result
             else:
                 max_id = self.session.query(func.max(WellTechData.id)).scalar() or 0
                 new_id = max_id + 1
@@ -522,27 +818,23 @@ class WellTechDataModel:
                     id=new_id,
                     well_id=self.well_id,
                     pressure=None,
-                    flow=None,
                     thickness=None,
                     viscosity=None,
                     permeability=None,
                     porosity=None,
                     radius=None,
                     compressibility=None,
-                    water_saturation=None,
                     volume_factor=None
                 )
                 empty_measures = {
                     'id':new_id,
                     'pressure':None,
-                    'flow':None,
                     'thickness':None,
                     'viscosity':None,
                     'permeability':None,
                     'porosity':None,
                     'radius':None,
                     'compressibility':None,
-                    'water_saturation':None,
                     'volume_factor':None
                 }
                 self.session.add(new_measures)

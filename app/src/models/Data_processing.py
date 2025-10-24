@@ -144,7 +144,7 @@ class Data:
         return UserTechDataModel(user_id=self.user_id).get_user_units(well_id=None)
     
     def create_spider(self):
-        return DataModel(well_id=self.well_id).create_spider()
+        return DataModel(well_id=self.well_id, user_id=self.user_id).create_spider()
     
     def get_well_measures(self):
         return WellTechDataModel(well_id=self.well_id).get_well_measures()
@@ -182,8 +182,8 @@ async def get_user_units(user_id: int = Depends(get_current_user_id)):
     return Data(user_id=user_id).get_user_units()
 
 @data_router.post("/create_spider/{well_id}")
-async def create_spider(well_id: int):
-    return Data(well_id=well_id).create_spider()
+async def create_spider(well_id: int, user_id: int = Depends(get_current_user_id)):
+    return Data(well_id=well_id, user_id=user_id).create_spider()
 
 @data_router.get("/get_spider_data/{well_id}")
 async def get_spider_data(well_id: int):

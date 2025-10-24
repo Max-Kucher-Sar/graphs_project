@@ -167,8 +167,8 @@ def convert_to_si(
         "psi-1": 0.0014505, "МПа-1": 0.000001, "физ.атм-1": 0.0000098694, 
         "кПа-1": 0.001, "кг/см2": 0.00000000101972, "Па⁻¹": 1.0
     }
-    volume_factor = {"м³/м³": 1.0, "bbl/STB": 1.0}  # добавил словарь
-    debit = {"м3/сут": 0.0000115740740740741, "bbl/d": 0.00000184}
+    volume_factor = {"%": 1.0, "fraction": 1.0}  # добавил словарь
+    debit = {"м³/сут": 0.0000115740740740741, "bbl/d": 0.00000184}
     
     # Параметры, которые требуют деления (а не умножения)
     DIVISION_PARAMS = {'radius', 'thickness'}
@@ -282,11 +282,11 @@ def convert_to_user_si(
         "psi": 6894.76, 
         "МПа": 1000000.0, 
         "физ.атм": 101325.0, 
-        "kPa": 1000.0,
-        "Pa": 1.0
+        "кПа": 1000.0,
+        "Па": 1.0
     }
     thickness = {"ft": 3.28084, "m": 1.0}
-    viscosity = {"сП": 0.001, "cp": 0.001, "Pa·s": 1.0}
+    viscosity = {"сП": 0.001, "cp": 0.001, "Па*с": 1.0}
     permeability = {
         "мД": 9.86923e-16, 
         "md": 9.86923e-16, 
@@ -299,15 +299,15 @@ def convert_to_user_si(
         "psi⁻¹": 0.0014505, 
         "МПа⁻¹": 1e-6, 
         "физ.атм⁻¹": 9.8694e-6, 
-        "kPa⁻¹": 0.001, 
+        "кПа⁻¹": 0.001, 
         "кг/см²": 1.01972e-9, 
-        "Pa⁻¹": 1.0
+        "Па⁻¹": 1.0
     }
-    volume_factor = {"м³/м³": 1.0, "bbl/STB": 1.0}
+    volume_factor = {"%": 1.0, "fraction": 1.0}  # добавил словарь
     debit = {
         "м³/сут": 1.157407e-5, 
         "bbl/d": 1.84e-6, 
-        "m³/s": 1.0
+        "м³/сек": 1.0
     }
     
     MULTIPLICATION_PARAMS = {'radius', 'thickness'}
@@ -583,6 +583,8 @@ class DataModel:
                 return None
 
     def create_spider(self):
+        self.data = WellTechDataModel(well_id=self.well_id).get_well_measures(user_id=self.user_id)
+        debit_unit = self.session.query(UserTechData.debit).filter(UserTechData.user_id == self.user_id, UserTechData.well_id == None).scalar()
         pressure = self.data['pressure']
         thickness = self.data['thickness']
         viscosity = self.data['viscosity']
@@ -617,14 +619,17 @@ class DataModel:
 
             for time_press, value_press in data_for_processing[0].items():
                 time_press = float(time_press)
-                DPi = 0 
+                DPi = pressure 
                 for i in range(len(debit_table_times)):
                     to_str = str(debit_table_times[i])
                     if i == 0:
-                        sys_deb = data_for_processing[1][to_str] / 86400 # из м3/д в м3/сек
+                        deb_convert = {debit_unit: data_for_processing[1][to_str]}
+                        # sys_deb = data_for_processing[1][to_str] # / 86400 # из м3/д в м3/сек
+                        sys_deb = convert_to_si(debit_info={debit_unit: data_for_processing[1][to_str]})[debit_unit] # / 86400 # из м3/д в м3/сек
                     else:
                         to_str_2 = str(debit_table_times[i-1])
-                        sys_deb = (data_for_processing[1][to_str] - data_for_processing[1][to_str_2]) / 86400 # позже все будет в СИ ми убрать деление
+                        # sys_deb = (data_for_processing[1][to_str] - data_for_processing[1][to_str_2]) #/ 86400 # позже все будет в СИ ми убрать деление
+                        sys_deb = (convert_to_si(debit_info={debit_unit: data_for_processing[1][to_str]})[debit_unit] - convert_to_si(debit_info={debit_unit: data_for_processing[1][to_str_2]})[debit_unit]) #/ 86400 # позже все будет в СИ ми убрать деление
                     
                     if time_press > debit_table_times[i]:
                         x = (radius ** 2) / (4 * pyezoprovodnost * ((time_press - debit_table_times[i]) * 3600))
@@ -637,8 +642,8 @@ class DataModel:
                     else:
                         continue
 
-                res_spider[time_press] = DPi / 101325 # из Па в физ.атм
-                dpi.append(DPi / 101325)
+                res_spider[time_press] = DPi # / 101325 # из Па в физ.атм
+                dpi.append(DPi) #  / 101325
             
             self.session.execute(update(Data).where(Data.well_id == self.well_id).values(dpi = dpi, spider_graph = res_spider))
             self.session.commit()
@@ -689,6 +694,11 @@ class DataModel:
     def get_spider_data(self):
         # тут пересчитывать на те единицы, которые выбрал пользователь
         return self.session.query(Data.spider_graph).filter(Data.well_id == self.well_id).scalar()
+    
+    def create_sum(self):
+        # по айди пользователя достать список айдишников его скважин, достать DPi из всех и рассчитать сумму и выдать ее
+        pass
+    
 
 class UserTechDataModel:
     def __init__(self, data=[], user_id: int = 0):
@@ -744,6 +754,7 @@ class UserTechDataModel:
                         user_id=self.user_id,
                         well_id=None,
                         pressure=None,
+                        debit=None,
                         thickness=None,
                         viscosity=None,
                         permeability=None,
@@ -756,6 +767,7 @@ class UserTechDataModel:
                         'id':new_id,
                         'well_id':None,
                         'pressure':None,
+                        'debit':None,
                         'thickness':None,
                         'viscosity':None,
                         'permeability':None,

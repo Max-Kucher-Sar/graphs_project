@@ -23,8 +23,8 @@ ALGORITHM = os.getenv('ALGORITHM')
 ACCESS_TOKEN_EXPIRE_MINUTES = os.getenv('ACCESS_TOKEN_EXPIRE_MINUTES')
 
 pwd_context = CryptContext(schemes=["sha256_crypt"], deprecated="auto")
-# oauth2_scheme = OAuth2PasswordBearer(tokenUrl="https://gubkin-technologies.ru/api/users/login")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="http://localhost:8000/api/users/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="https://gubkin-technologies.ru/api/users/login")
+# oauth2_scheme = OAuth2PasswordBearer(tokenUrl="http://localhost:8000/api/users/login")
 
 def verify_password(plain_password, hashed_password):
     return hashlib.md5(plain_password.encode()).hexdigest() == hashed_password

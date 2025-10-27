@@ -573,6 +573,7 @@ class DataModel:
         try:
             existing_press_data = self.session.query(Data).filter(Data.well_id == self.well_id).first()
             if existing_press_data:
+                
                 existing_press_data.press_data = self.data
                 flag_modified(existing_press_data, 'press_data')
                 self.session.execute(update(Well).where(Well.id == self.well_id).values(is_press = True))
@@ -617,8 +618,11 @@ class DataModel:
     def create_spider(self):
         self.data = WellTechDataModel(well_id=self.well_id).get_well_measures(user_id=self.user_id)
         debit_unit = self.session.query(UserTechData.debit).filter(UserTechData.user_id == self.user_id, UserTechData.well_id == None).scalar()
-        if self.data['pressure'] is None or self.data['thickness'] is None:
-            return {"msg": "Отсутствуют переменные для расчета паука"}
+        # if self.data['pressure'] is None or self.data['thickness'] is None:
+        #     return {"msg": "Отсутствуют переменные для расчета паука"}
+
+        if any(value is None or value == 0.0 for value in self.data.values()):
+            return {"msg": "Пол со значением 0 не валидно, введите правильное значение"}
         pressure = self.data['pressure']
         thickness = self.data['thickness']
         viscosity = self.data['viscosity']
@@ -784,54 +788,74 @@ class DataModel:
         2)взять давление исследуемой скважины и завести переменную
         3)пойти по ним циклом и собрать список списков
         """
-        # БЕРЕМ ДАВЛЕНИЕ И АЙДИ ИССЛЕДУЕМОЙ СКВАЖИНЫ
-        stmt = select(WellTechData.pressure, WellTechData.well_id).select_from(WellTechData).join(Well, WellTechData.well_id == Well.id).where(Well.user_id == self.user_id, Well.is_press == True, Well.is_debit == True)
-        main_info = self.session.execute(stmt).all()
-        main_well_press_first = float(main_well_info[0][0])
-        main_well_id = int(main_well_info[0][1])
+        try:
+            # БЕРЕМ НАСТРОЙКУ ДЕБИТА ПОЛЬЗОВАТЕЛЯ
+            debit_unit = self.session.query(UserTechData.debit).filter(UserTechData.user_id == self.user_id, UserTechData.well_id == None).scalar()
+            # БЕРЕМ ДАВЛЕНИЕ И АЙДИ ИССЛЕДУЕМОЙ СКВАЖИНЫ
+            stmt = select(WellTechData.pressure, WellTechData.well_id).select_from(WellTechData).join(Well, WellTechData.well_id == Well.id).where(Well.user_id == self.user_id, Well.is_press == True, Well.is_debit == True)
+            main_info = self.session.execute(stmt).all()
+            main_well_press_first = float(main_info[0][0])
+            main_well_id = int(main_info[0][1])
 
-        # БЕРЕМ ДАННЫЕ ПО ДАВЛЕНИЮ В ВИДЕ СЛОВАРЯ ЧТОБЫ ПОЛУЧИТЬ ВРЕМЯ ПО ОСИ Х
-        press_data = self.session.query(Data.press_data).filter(Data.well_id == press_well).scalar()
-        press_data = self.get_hours(press_data)
-        time_press = press_data.keys()
+            # БЕРЕМ ДАННЫЕ ПО ДАВЛЕНИЮ В ВИДЕ СЛОВАРЯ ЧТОБЫ ПОЛУЧИТЬ ВРЕМЯ ПО ОСИ Х
+            press_data = self.session.query(Data.press_data).filter(Data.well_id == press_well).scalar()
+            press_data = self.get_hours(press_data)
+            time_press = press_data.keys()
 
-        #ПОЛУЧАЕМ СПИСОК ВСЕХ ТАБЛИЦ ДЕБИТОВ РАССЧИТАНЫХ ПОСЛЕ ПАУКА
-        stmt = select(Data.debit_table)\
-                .select_from(Data)\
-                .join(Well, Data.well_id == Well.id)\
-                .where(Well.user_id == self.user_id, Data.debit_table != {})
-            
-        debit_table_result = self.session.execute(stmt).scalars().all()
+            #ПОЛУЧАЕМ СПИСОК ВСЕХ ТАБЛИЦ ДЕБИТОВ РАССЧИТАНЫХ ПОСЛЕ ПАУКА
+            stmt = select(Data.debit_table)\
+                    .select_from(Data)\
+                    .join(Well, Data.well_id == Well.id)\
+                    .where(Well.user_id == self.user_id, Data.debit_table != {})
+                
+            debit_table_result = self.session.execute(stmt).scalars().all()
 
-        # НАХОДИМ ВРЕМЯ С КОТОРОГО НАЧИНАТЬ (ПЕРВАЯ ТОЧКА + ШАГ ЗАДАННЫЙ ПОЛЬЗОВАТЕЛЕМ)
-        time_start = time_press[0] + step
-        res_list = []
-        # ИДЕМ ПО ЦИКЛУ И РАССЧИТЫВАЕМ СПИСОК СПИСКОВ
-        for well_debit_table in debit_table_result:
-            debit_table_times = [float(k) for k, v in well_debit_table.items()]
-            DPi = main_well_press_first
-            for i in range(len(debit_table_times)):
+            res_list = []
+            # ИДЕМ ПО ЦИКЛУ И РАССЧИТЫВАЕМ СПИСОК СПИСКОВ
+            for well_debit_table in debit_table_result:
+                # НАХОДИМ ВРЕМЯ С КОТОРОГО НАЧИНАТЬ (ПЕРВАЯ ТОЧКА + ШАГ ЗАДАННЫЙ ПОЛЬЗОВАТЕЛЕМ)
+                time_start = time_press[0] + step
+                well_P_points = []
+                debit_table_times = [float(k) for k, v in well_debit_table.items()]
+                DPi = main_well_press_first
+                for i in range(len(debit_table_times)):
                     to_str = str(debit_table_times[i])
                     if i == 0:
                         # deb_convert = {debit_unit: data_for_processing[1][to_str]}
                         # sys_deb = data_for_processing[1][to_str] # / 86400 # из м3/д в м3/сек
-                        sys_deb = convert_to_si(debit_info={debit_unit: data_for_processing[1][to_str]})[debit_unit] # / 86400 # из м3/д в м3/сек
+                        sys_deb = 0 - convert_to_si(debit_info={debit_unit: well_debit_table[to_str]})[debit_unit] # / 86400 # из м3/д в м3/сек
                     else:
                         to_str_2 = str(debit_table_times[i-1])
                         # sys_deb = (data_for_processing[1][to_str] - data_for_processing[1][to_str_2]) #/ 86400 # позже все будет в СИ ми убрать деление
-                        sys_deb = (convert_to_si(debit_info={debit_unit: data_for_processing[1][to_str]})[debit_unit] - convert_to_si(debit_info={debit_unit: data_for_processing[1][to_str_2]})[debit_unit]) #/ 86400 # позже все будет в СИ ми убрать деление
+                        sys_deb = (0 - convert_to_si(debit_info={debit_unit: well_debit_table[to_str_2]})[debit_unit]) #/ 86400 # позже все будет в СИ ми убрать деление
                     
-                    if time_press > debit_table_times[i]:
-                        x = (radius ** 2) / (4 * pyezoprovodnost * ((time_press - debit_table_times[i]) * 3600))
+                    if time_start > debit_table_times[i]:
+                        x = (radius ** 2) / (4 * pyezoprovodnost * ((time_start - debit_table_times[i]) * 3600))
                         E = self.ei(x)
                         
                         DPj = -((viscosity * sys_deb * volume_factor)/(permeability * thickness * 4 * math.pi)) * E
                         # DPj - используется для расчета суммы 
                         DPi += DPj
-
-                    else:
                         continue
 
+                    else:
+                        time_start += step
+                        well_P_points.append(DPi)
+            some_res = {
+                "14.01.2025 0:00": 200,
+                "15.01.2025 0:00": 200,
+                "16.01.2025 0:00": 200,
+                "17.01.2025 0:00": 200,
+                "18.01.2025 0:00": 200,
+                "19.01.2025 0:00": 200,
+                "20.01.2025 0:00": 200,
+                "21.01.2025 0:00": 200,
+                "13.01.2025 12:00": 200,
+                "21.01.2025 20:00": 200
+            }
+            return some_res
+        except Exception as e:
+            return {"msg": f"ошибка при расчете Рпластового: {e}"}
 
 
 

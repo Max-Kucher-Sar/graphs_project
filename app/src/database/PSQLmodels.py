@@ -959,9 +959,9 @@ class WellTechDataModel:
             user_units = self.session.query(UserTechData).filter(UserTechData.user_id == self.user_id).first()
             convert_result = convert_to_si(values=self.data, measures=user_units.__dict__)
             
-            print(user_units.__dict__)
-            print(self.data)
-            print(convert_result)
+            print(user_units.__dict__, "при заносе в БД")
+            print(self.data, "при заносе в БД")
+            print(convert_result, "при заносе в БД")
             result = self.session.execute(update(WellTechData).where(WellTechData.well_id == self.well_id).values(**convert_result))
             self.session.commit()
             if result:
@@ -985,6 +985,9 @@ class WellTechDataModel:
                 # Берем СИ юзера
                 user_units = UserTechDataModel(user_id=user_id).get_user_units(well_id=self.well_id)
                 result = convert_to_user_si(values=well_measures.__dict__, measures=user_units.__dict__)
+                print(user_units.__dict__, "при выносе")
+                print(well_measures.__dict__,  "при выносе")
+                print(result,  "при выносе")
                 return result
             else:
                 max_id = self.session.query(func.max(WellTechData.id)).scalar() or 0

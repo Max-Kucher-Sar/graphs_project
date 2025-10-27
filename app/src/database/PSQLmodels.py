@@ -157,18 +157,50 @@ def convert_to_si(
         press_info: Optional[dict] = None
     ):
     # Словари коэффициентов преобразования
-    pressure = {"тех.атм": 98066.5, "psi": 6894.76, "МПа": 1000000, "физ.атм": 101325, "kПа-1": 1000}
-    thickness = {"ft": 3.28084, "m": 1.0}  # добавил метры
-    viscosity = {"сП": 0.001, "cp": 0.001, "Па·с": 1.0}
-    permeability = {"мД": 9.86923e-16, "md": 9.86923e-16, "Дарси": 9.86923e-13, "м²": 1.0}
-    porosity = {"%": 0.01, "доли": 1.0}
-    radius = {"ft": 3.28084, "m": 1.0}
-    compressibility = {
-        "psi-1": 0.0014505, "МПа-1": 0.000001, "физ.атм-1": 0.0000098694, 
-        "кПа-1": 0.001, "кг/см2": 0.00000000101972, "Па⁻¹": 1.0
+    # pressure = {"тех.атм": 98066.5, "psi": 6894.76, "МПа": 1000000, "физ.атм": 101325, "kПа-1": 1000}
+    pressure = {
+        "тех.атм": 98066.5, 
+        "psi": 6894.76, 
+        "МПа": 1000000.0, 
+        "физ.атм": 101325.0, 
+        "кПа": 1000.0,
+        "Па": 1.0
     }
+    # thickness = {"ft": 3.28084, "m": 1.0}  # добавил метры
+    thickness = {"ft": 3.28084, "m": 1.0}
+    # viscosity = {"сП": 0.001, "cp": 0.001, "Па·с": 1.0}
+    viscosity = {"сП": 0.001, "cp": 0.001, "Па*с": 1.0}
+    # permeability = {"мД": 9.86923e-16, "md": 9.86923e-16, "Дарси": 9.86923e-13, "м²": 1.0}
+    permeability = {
+        "мД": 9.86923e-16, 
+        "md": 9.86923e-16, 
+        "Дарси": 9.86923e-13, 
+        "m²": 1.0
+    }
+    # porosity = {"%": 0.01, "доли": 1.0}
+    porosity = {"%": 0.01, "доли": 1.0}
+    # radius = {"ft": 3.28084, "m": 1.0}
+    radius = {"ft": 3.28084, "m": 1.0}
+    # compressibility = {
+    #     "psi-1": 0.0014505, "МПа-1": 0.000001, "физ.атм-1": 0.0000098694, 
+    #     "кПа-1": 0.001, "кг/см2": 0.00000000101972, "Па⁻¹": 1.0
+    # }
+    compressibility = {
+        "psi⁻¹": 0.0014505, 
+        "МПа⁻¹": 1e-6, 
+        "физ.атм⁻¹": 9.8694e-6, 
+        "кПа⁻¹": 0.001, 
+        "кг/см²": 1.01972e-9, 
+        "Па⁻¹": 1.0
+    }
+    # volume_factor = {"%": 1.0, "fraction": 1.0}  # добавил словарь
+    # debit = {"м³/сут": 0.0000115740740740741, "bbl/d": 0.00000184}
     volume_factor = {"%": 1.0, "fraction": 1.0}  # добавил словарь
-    debit = {"м³/сут": 0.0000115740740740741, "bbl/d": 0.00000184}
+    debit = {
+        "м³/сут": 1.157407e-5, 
+        "bbl/d": 1.84e-6, 
+        "м³/сек": 1.0
+    }
     
     # Параметры, которые требуют деления (а не умножения)
     DIVISION_PARAMS = {'radius', 'thickness'}
@@ -626,7 +658,7 @@ class DataModel:
                 for i in range(len(debit_table_times)):
                     to_str = str(debit_table_times[i])
                     if i == 0:
-                        deb_convert = {debit_unit: data_for_processing[1][to_str]}
+                        # deb_convert = {debit_unit: data_for_processing[1][to_str]}
                         # sys_deb = data_for_processing[1][to_str] # / 86400 # из м3/д в м3/сек
                         sys_deb = convert_to_si(debit_info={debit_unit: data_for_processing[1][to_str]})[debit_unit] # / 86400 # из м3/д в м3/сек
                     else:
@@ -744,6 +776,64 @@ class DataModel:
             return result
         except Exception as e:
             return {"msg": f"Ошибка при расчете суммы давлений: {e}"}
+
+    def create_reservoir_press(self, step: float, interval: float):
+        #собрать айди всех скважин для кого расчитывали паука
+        """
+        1)собрать айди всех скважин для кого расчитывали паука
+        2)взять давление исследуемой скважины и завести переменную
+        3)пойти по ним циклом и собрать список списков
+        """
+        # БЕРЕМ ДАВЛЕНИЕ И АЙДИ ИССЛЕДУЕМОЙ СКВАЖИНЫ
+        stmt = select(WellTechData.pressure, WellTechData.well_id).select_from(WellTechData).join(Well, WellTechData.well_id == Well.id).where(Well.user_id == self.user_id, Well.is_press == True, Well.is_debit == True)
+        main_info = self.session.execute(stmt).all()
+        main_well_press_first = float(main_well_info[0][0])
+        main_well_id = int(main_well_info[0][1])
+
+        # БЕРЕМ ДАННЫЕ ПО ДАВЛЕНИЮ В ВИДЕ СЛОВАРЯ ЧТОБЫ ПОЛУЧИТЬ ВРЕМЯ ПО ОСИ Х
+        press_data = self.session.query(Data.press_data).filter(Data.well_id == press_well).scalar()
+        press_data = self.get_hours(press_data)
+        time_press = press_data.keys()
+
+        #ПОЛУЧАЕМ СПИСОК ВСЕХ ТАБЛИЦ ДЕБИТОВ РАССЧИТАНЫХ ПОСЛЕ ПАУКА
+        stmt = select(Data.debit_table)\
+                .select_from(Data)\
+                .join(Well, Data.well_id == Well.id)\
+                .where(Well.user_id == self.user_id, Data.debit_table != {})
+            
+        debit_table_result = self.session.execute(stmt).scalars().all()
+
+        # НАХОДИМ ВРЕМЯ С КОТОРОГО НАЧИНАТЬ (ПЕРВАЯ ТОЧКА + ШАГ ЗАДАННЫЙ ПОЛЬЗОВАТЕЛЕМ)
+        time_start = time_press[0] + step
+        res_list = []
+        # ИДЕМ ПО ЦИКЛУ И РАССЧИТЫВАЕМ СПИСОК СПИСКОВ
+        for well_debit_table in debit_table_result:
+            debit_table_times = [float(k) for k, v in well_debit_table.items()]
+            DPi = main_well_press_first
+            for i in range(len(debit_table_times)):
+                    to_str = str(debit_table_times[i])
+                    if i == 0:
+                        # deb_convert = {debit_unit: data_for_processing[1][to_str]}
+                        # sys_deb = data_for_processing[1][to_str] # / 86400 # из м3/д в м3/сек
+                        sys_deb = convert_to_si(debit_info={debit_unit: data_for_processing[1][to_str]})[debit_unit] # / 86400 # из м3/д в м3/сек
+                    else:
+                        to_str_2 = str(debit_table_times[i-1])
+                        # sys_deb = (data_for_processing[1][to_str] - data_for_processing[1][to_str_2]) #/ 86400 # позже все будет в СИ ми убрать деление
+                        sys_deb = (convert_to_si(debit_info={debit_unit: data_for_processing[1][to_str]})[debit_unit] - convert_to_si(debit_info={debit_unit: data_for_processing[1][to_str_2]})[debit_unit]) #/ 86400 # позже все будет в СИ ми убрать деление
+                    
+                    if time_press > debit_table_times[i]:
+                        x = (radius ** 2) / (4 * pyezoprovodnost * ((time_press - debit_table_times[i]) * 3600))
+                        E = self.ei(x)
+                        
+                        DPj = -((viscosity * sys_deb * volume_factor)/(permeability * thickness * 4 * math.pi)) * E
+                        # DPj - используется для расчета суммы 
+                        DPi += DPj
+
+                    else:
+                        continue
+
+
+
 
 class UserTechDataModel:
     def __init__(self, data=[], user_id: int = 0):

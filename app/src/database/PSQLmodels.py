@@ -959,6 +959,8 @@ class WellTechDataModel:
             user_units = self.session.query(UserTechData).filter(UserTechData.user_id == self.user_id).first()
             convert_result = convert_to_si(values=self.data, measures=user_units.__dict__)
             print(self.data)
+            print(user_units)
+            print(self.data)
             print(convert_result)
             result = self.session.execute(update(WellTechData).where(WellTechData.well_id == self.well_id).values(**convert_result))
             self.session.commit()

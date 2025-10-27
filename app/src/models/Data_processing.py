@@ -152,6 +152,7 @@ class Data:
     def get_units_and_measures(self):
         units = UserTechDataModel(user_id=self.user_id).get_user_units(well_id=self.well_id)
         measures = WellTechDataModel(well_id=self.well_id).get_well_measures(user_id=self.user_id)
+        print()
         result = {
             "units": units,
             "measures": measures

@@ -695,10 +695,52 @@ class DataModel:
         # тут пересчитывать на те единицы, которые выбрал пользователь
         return self.session.query(Data.spider_graph).filter(Data.well_id == self.well_id).scalar()
     
-    def create_sum(self):
+    def get_press_sum(self):
         # по айди пользователя достать список айдишников его скважин, достать DPi из всех и рассчитать сумму и выдать ее
-        pass
-    
+        # stmt = select(Well.id).where(Well.user_id == self.user_id)
+        # user_wells = self.session.execute(stmt).scalars()
+        # dpi_list = self.session.query(Data.dpi).join(Well).filter(Well.user_id == self.user_id, Data.dpi != {}).scalars()
+        try:
+            stmt = select(Data.dpi)\
+                .select_from(Data)\
+                .join(Well, Data.well_id == Well.id)\
+                .where(Well.user_id == self.user_id, Data.dpi != {})
+            
+            dpi_result = self.session.execute(stmt).scalars().all()
+
+            primary_sum = [
+                sum(item for item in items if item is not None) 
+                if any(item is not None for item in items) 
+                else None 
+                for items in zip(*dpi_result)
+            ]
+
+            stmt = select(WellTechData.pressure, Well.id)\
+                .select_from(WellTechData)\
+                .join(Well, WellTechData.well_id == Well.id)\
+                .where(
+                    Well.user_id == self.user_id, 
+                    Well.is_press == True, 
+                    Well.is_debit == True
+                )
+            
+            main_well_info = self.session.execute(stmt).all()
+            main_well_press = float(main_well_info[0][0])
+            main_well_id = int(main_well_info[0][1])
+
+            stmt = select(Data.press_data).where(Data.well_id == main_well_id)
+            X_row = self.session.execute(stmt).scalar()
+
+            result = {}
+            for i, time in enumerate(X_row.keys()):
+                if i < len(primary_sum):
+                    result[time] = primary_sum[i] + main_well_press
+                else:
+                    result[time] = None
+            # print(X_row)
+            return result
+        except Exception as e:
+            return {"msg": f"Ошибка при расчете суммы давлений: {e}"}
 
 class UserTechDataModel:
     def __init__(self, data=[], user_id: int = 0):

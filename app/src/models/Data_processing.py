@@ -160,6 +160,9 @@ class Data:
 
     def get_spider_data(self):
         return DataModel(well_id=self.well_id).get_spider_data()
+    
+    def get_press_sum(self):
+        return DataModel(user_id=self.user_id).get_press_sum()
 
 @data_router.put("/upload_primary_data") 
 async def upload_primary_data(well_id: int, data_debit: str = Form(...), data_press: str = Form(...),user_id: int = Depends(get_current_user_id)):
@@ -192,3 +195,7 @@ async def get_spider_data(well_id: int):
 @data_router.get("/get_units_and_measures/{well_id}")
 async def get_units_and_measures(well_id: int, user_id: int = Depends(get_current_user_id)):
     return Data(well_id=well_id, user_id=user_id).get_units_and_measures()
+
+@data_router.get("/get_press_sum")
+async def get_press_sum(user_id: int = Depends(get_current_user_id)):
+    return Data(user_id=user_id).get_press_sum()

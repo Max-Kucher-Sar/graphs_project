@@ -585,6 +585,8 @@ class DataModel:
     def create_spider(self):
         self.data = WellTechDataModel(well_id=self.well_id).get_well_measures(user_id=self.user_id)
         debit_unit = self.session.query(UserTechData.debit).filter(UserTechData.user_id == self.user_id, UserTechData.well_id == None).scalar()
+        if self.data['pressure'] is None or self.data['thickness'] is None:
+            return {"msg": "Отсутствуют переменные для расчета паука"}
         pressure = self.data['pressure']
         thickness = self.data['thickness']
         viscosity = self.data['viscosity']
@@ -862,7 +864,7 @@ class WellTechDataModel:
             
             if well_measures:
                 if well_measures.pressure is None or well_measures.thickness is None:
-                    return well_measures
+                    return well_measures.__dict__
                 # Берем СИ юзера
                 user_units = UserTechDataModel(user_id=user_id).get_user_units(well_id=self.well_id)
                 result = convert_to_user_si(values=well_measures.__dict__, measures=user_units.__dict__)

@@ -585,6 +585,7 @@ class DataModel:
     def create_spider(self):
         self.data = WellTechDataModel(well_id=self.well_id).get_well_measures(user_id=self.user_id)
         debit_unit = self.session.query(UserTechData.debit).filter(UserTechData.user_id == self.user_id, UserTechData.well_id == None).scalar()
+        print(self.data, type(self.data))
         pressure = self.data['pressure']
         thickness = self.data['thickness']
         viscosity = self.data['viscosity']

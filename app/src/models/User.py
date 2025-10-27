@@ -9,8 +9,12 @@ from src.models.Auth import (
     get_current_user_id,
     ACCESS_TOKEN_EXPIRE_MINUTES
 )
-
+from dotenv import load_dotenv
+import os
 users_router = APIRouter(prefix="/users", tags=["Пользователь"])
+
+load_dotenv()
+ACCESS_TOKEN_EXPIRE_MINUTES = os.getenv('ACCESS_TOKEN_EXPIRE_MINUTES')
 
 class UserCreate(BaseModel):
     login: str
@@ -50,7 +54,7 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    access_token_expires = timedelta(minutes=30)
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": user.login, "admin": user.admin},
         expires_delta=access_token_expires

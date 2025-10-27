@@ -600,7 +600,8 @@ class DataModel:
 
         try:
             # берем скважину где есть давление
-            press_well = self.session.query(Well.id).filter(Well.is_press == True).scalar()
+            press_well_result = self.session.query(Well.id).filter(Well.is_press == True).first()
+            press_well = press_well_result[0] if press_well_result else None
             data_for_processing = []
             if self.well_id == press_well:
                 data_bd = self.session.query(Data.press_data, Data.debit_table).filter(Data.well_id == self.well_id).first() 

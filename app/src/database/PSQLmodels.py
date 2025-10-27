@@ -956,7 +956,8 @@ class WellTechDataModel:
         try:
             self.well_id = self.data.pop("well_id")
             # Берем СИ юзера
-            user_units = self.session.query(UserTechData).filter(UserTechData.user_id == self.user_id).first()
+            # user_units = self.session.query(UserTechData).filter(UserTechData.user_id == self.user_id).first()
+            user_units = UserTechDataModel(user_id=user_id).get_user_units(well_id=self.well_id)
             convert_result = convert_to_si(values=self.data, measures=user_units.__dict__)
             
             print(user_units.__dict__, "при заносе в БД")

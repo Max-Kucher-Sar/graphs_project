@@ -195,7 +195,7 @@ def convert_to_si(
     }
     # volume_factor = {"%": 1.0, "fraction": 1.0}  # добавил словарь
     # debit = {"м³/сут": 0.0000115740740740741, "bbl/d": 0.00000184}
-    volume_factor = {"%": 1.0, "fraction": 1.0}  # добавил словарь
+    volume_factor = {"%": 0.01, "доли": 1.0}  # добавил словарь
     debit = {
         "м³/сут": 1.157407e-5, 
         "bbl/d": 1.84e-6, 
@@ -335,7 +335,7 @@ def convert_to_user_si(
         "кг/см²": 1.01972e-9, 
         "Па⁻¹": 1.0
     }
-    volume_factor = {"%": 1.0, "fraction": 1.0}  # добавил словарь
+    volume_factor = {"%": 0.01, "доли": 1.0}  # добавил словарь
     debit = {
         "м³/сут": 1.157407e-5, 
         "bbl/d": 1.84e-6, 
@@ -622,7 +622,7 @@ class DataModel:
         #     return {"msg": "Отсутствуют переменные для расчета паука"}
 
         if any(value is None or value == 0.0 for value in self.data.values()):
-            return {"msg": "Пол со значением 0 не валидно, введите правильное значение"}
+            return {"msg": "Поле со значением 0 не валидно, введите правильное значение"}
         pressure = self.data['pressure']
         thickness = self.data['thickness']
         viscosity = self.data['viscosity']
@@ -658,7 +658,8 @@ class DataModel:
 
             for time_press, value_press in data_for_processing[0].items():
                 time_press = float(time_press)
-                DPi = pressure 
+                # DPi = pressure 
+                DPi = 0 
                 for i in range(len(debit_table_times)):
                     to_str = str(debit_table_times[i])
                     if i == 0:
@@ -672,6 +673,7 @@ class DataModel:
                     
                     if time_press > debit_table_times[i]:
                         x = (radius ** 2) / (4 * pyezoprovodnost * ((time_press - debit_table_times[i]) * 3600))
+               
                         E = self.ei(x)
                         
                         DPj = -((viscosity * sys_deb * volume_factor)/(permeability * thickness * 4 * math.pi)) * E
@@ -753,7 +755,6 @@ class DataModel:
                 else None 
                 for items in zip(*dpi_result)
             ]
-
             stmt = select(WellTechData.pressure, Well.id)\
                 .select_from(WellTechData)\
                 .join(Well, WellTechData.well_id == Well.id)\
@@ -769,7 +770,7 @@ class DataModel:
 
             stmt = select(Data.press_data).where(Data.well_id == main_well_id)
             X_row = self.session.execute(stmt).scalar()
-
+ 
             result = {}
             for i, time in enumerate(X_row.keys()):
                 if i < len(primary_sum):
@@ -798,9 +799,10 @@ class DataModel:
             main_well_id = int(main_info[0][1])
 
             # БЕРЕМ ДАННЫЕ ПО ДАВЛЕНИЮ В ВИДЕ СЛОВАРЯ ЧТОБЫ ПОЛУЧИТЬ ВРЕМЯ ПО ОСИ Х
-            press_data = self.session.query(Data.press_data).filter(Data.well_id == press_well).scalar()
-            press_data = self.get_hours(press_data)
-            time_press = press_data.keys()
+            press_data_time = self.session.query(Data.press_data).filter(Data.well_id == main_well_id).scalar()
+            press_data = self.get_hours(press_data_time)
+            time_press = list(press_data.keys())
+            
 
             #ПОЛУЧАЕМ СПИСОК ВСЕХ ТАБЛИЦ ДЕБИТОВ РАССЧИТАНЫХ ПОСЛЕ ПАУКА
             stmt = select(Data.debit_table)\
@@ -808,56 +810,178 @@ class DataModel:
                     .join(Well, Data.well_id == Well.id)\
                     .where(Well.user_id == self.user_id, Data.debit_table != {})
                 
-            debit_table_result = self.session.execute(stmt).scalars().all()
+            debit_table_results = self.session.execute(stmt).scalars().all()
+
+            # ПОЛУЧАЕМ СПИСОК АЙДИШНИКОВ СКВ
+            stmt = select(Data.well_id)\
+                    .select_from(Data)\
+                    .join(Well, Data.well_id == Well.id)\
+                    .where(Well.user_id == self.user_id, Data.debit_table != {})
+            wells_id = self.session.execute(stmt).scalars().all()
 
             res_list = []
             # ИДЕМ ПО ЦИКЛУ И РАССЧИТЫВАЕМ СПИСОК СПИСКОВ
-            for well_debit_table in debit_table_result:
-                # НАХОДИМ ВРЕМЯ С КОТОРОГО НАЧИНАТЬ (ПЕРВАЯ ТОЧКА + ШАГ ЗАДАННЫЙ ПОЛЬЗОВАТЕЛЕМ)
-                time_start = time_press[0] + step
-                well_P_points = []
-                debit_table_times = [float(k) for k, v in well_debit_table.items()]
-                DPi = main_well_press_first
-                for i in range(len(debit_table_times)):
-                    to_str = str(debit_table_times[i])
-                    if i == 0:
-                        # deb_convert = {debit_unit: data_for_processing[1][to_str]}
-                        # sys_deb = data_for_processing[1][to_str] # / 86400 # из м3/д в м3/сек
-                        sys_deb = 0 - convert_to_si(debit_info={debit_unit: well_debit_table[to_str]})[debit_unit] # / 86400 # из м3/д в м3/сек
-                    else:
-                        to_str_2 = str(debit_table_times[i-1])
-                        # sys_deb = (data_for_processing[1][to_str] - data_for_processing[1][to_str_2]) #/ 86400 # позже все будет в СИ ми убрать деление
-                        sys_deb = (0 - convert_to_si(debit_info={debit_unit: well_debit_table[to_str_2]})[debit_unit]) #/ 86400 # позже все будет в СИ ми убрать деление
-                    
-                    if time_start > debit_table_times[i]:
-                        x = (radius ** 2) / (4 * pyezoprovodnost * ((time_start - debit_table_times[i]) * 3600))
-                        E = self.ei(x)
-                        
-                        DPj = -((viscosity * sys_deb * volume_factor)/(permeability * thickness * 4 * math.pi)) * E
-                        # DPj - используется для расчета суммы 
-                        DPi += DPj
-                        continue
+            for i, well_debit_table in enumerate(debit_table_results):
+                #НАХОДИМ ЗНАЧЕНИЯ ДЛ СКВАЖИН
+                res = self.session.query(WellTechData).filter(WellTechData.well_id == wells_id[i]).first()
+                self.data = res.__dict__
+                if any(value is None or value == 0.0 for value in self.data.values()):
+                    return {"msg": "Поле со значением 0 не валидно, введите правильное значение"}
+                pressure = float(self.data['pressure'])
+                thickness = float(self.data['thickness'])
+                viscosity = float(self.data['viscosity'])
+                permeability = float(self.data['permeability'])
+                porosity = float(self.data['porosity'])
+                radius = float(self.data['radius'])
+                compressibility = float(self.data['compressibility'])
+                volume_factor = float(self.data['volume_factor'])
+                pyezoprovodnost = permeability / ((viscosity * compressibility) * porosity)
 
+
+                # НАХОДИМ ВРЕМЯ ОКОНЧАНИЯ ИЗМЕРЕНИЯ
+                time_finish = step + interval
+                
+                
+                debit_table_times = [float(k) for k, v in well_debit_table.items()]
+                
+                DPi = 0
+                well_P_points = [DPi]
+                # НАХОДИМ НАЧАЛО
+                time_start = time_press[0] + step # ИЗМЕНЯЕМАЯ ДЛЯ ЦИКЛА
+                calculated_times_hours = [time_press[0]]
+                debit_time = 0.0
+                time_measure = time_press[0] + step # НЕ ИЗМЕНЯЕМАЯ ДЛЯ ИЗМЕРЕНИЯ ДЕБИТА
+                for i in range(len(debit_table_times)): # ПОИСК ДЕБИТА ДО ОСТАНОВКИ
+                    if time_start > debit_table_times[i]:
+                        debit_time = debit_table_times[i]
                     else:
-                        time_start += step
-                        well_P_points.append(DPi)
-            some_res = {
-                "14.01.2025 0:00": 200,
-                "15.01.2025 0:00": 200,
-                "16.01.2025 0:00": 200,
-                "17.01.2025 0:00": 200,
-                "18.01.2025 0:00": 200,
-                "19.01.2025 0:00": 200,
-                "20.01.2025 0:00": 200,
-                "21.01.2025 0:00": 200,
-                "13.01.2025 12:00": 200,
-                "21.01.2025 20:00": 200
-            }
-            return some_res
+                        break
+                
+                to_str_2 = str(debit_time)
+                sys_deb = (0 - convert_to_si(debit_info={debit_unit: well_debit_table[to_str_2]})[debit_unit])
+                # ИДЕМ ЦИКЛОМ WHILE ПО ТОЧКАМ КОТОРЫЕ НАДО ИЗМЕРИТЬ ПОКА ВРЕМЯ МЕНЬШЕ КОНЦА
+                while time_start < time_finish:
+                    x = (radius ** 2) / (4 * pyezoprovodnost * ((time_start - debit_time) * 3600))
+
+                    E = self.ei(x)
+                    
+                    DPj = -((viscosity * sys_deb * volume_factor)/(permeability * thickness * 4 * math.pi)) * E
+                    # DPj - используется для расчета суммы 
+                    DPi += DPj
+                    
+                    well_P_points.append(DPi)
+                    calculated_times_hours.append(time_start)
+                    time_start += step
+
+                #  РАССЧИТЫВАЕМ КОНЕЧНУЮ ТОЧКУ
+                to_str_2 = str(debit_table_times[-1])
+                sys_deb = (0 - convert_to_si(debit_info={debit_unit: well_debit_table[to_str_2]})[debit_unit])
+                if time_press[-1] < debit_table_times[-1]:                                                             # !!!!!!!!!!!!!ВРЕМЕНННОООО ПРОВЕРИТЬ ЧТОБЫ НЕ БЫЛО ЧТО ЧАСОВ У ДЕБИТА БОЛЬШЕ ЧЕМ У ДАВЛЕНИЯ
+                    x = (radius ** 2) / (4 * pyezoprovodnost * ((time_press[-1] - debit_table_times[-2]) * 3600))   
+                else:
+                    x = (radius ** 2) / (4 * pyezoprovodnost * ((time_press[-1] - debit_table_times[-1]) * 3600))
+                E = self.ei(x)
+                
+                DPj = -((viscosity * sys_deb * volume_factor)/(permeability * thickness * 4 * math.pi)) * E
+                # DPj - используется для расчета суммы 
+                DPi += DPj
+                
+                well_P_points.append(DPi)
+                calculated_times_hours.append(time_press[-1])
+                res_list.append(well_P_points)
+                continue
+
+            # РАССЧИТЫВАЕМ СУММУ ВСЕХ ПОЛУЧЕННЫХ ТОЧЕК
+            primary_sum = [
+                sum(item for item in items if item is not None) 
+                if any(item is not None for item in items) 
+                else None 
+                for items in zip(*res_list)
+            ]
+            primary_sum = [item + main_well_press_first for item in primary_sum]
+            # 2. Сопоставляем расчетные значения
+            result_hours = self.map_calculated_values_with_hours(
+                press_data, calculated_times_hours, primary_sum, step
+            )
+            # 3. Конвертируем обратно в нужный формат дат
+            start_datetime = list(press_data_time.keys())[0]
+            result_datetime = self.convert_hours_to_datetime_keys(result_hours, start_datetime)
+            return result_datetime
         except Exception as e:
             return {"msg": f"ошибка при расчете Рпластового: {e}"}
 
+    def parse_flexible_datetime(self, time_str):
+        """
+        Парсит дату-время в разных форматах.
+        
+        Args:
+            time_str: строка с датой в формате '%d.%m.%Y %H:%M' или '%d.%m.%Y'
+        
+        Returns:
+            datetime объект
+        """
+        from datetime import datetime
+        
+        # Пробуем разные форматы
+        formats = [
+            '%d.%m.%Y %H:%M',  # полный формат с временем
+            '%d.%m.%Y',         # только дата
+        ]
+        
+        for fmt in formats:
+            try:
+                return datetime.strptime(time_str, fmt)
+            except ValueError:
+                continue
+        
+        # Если ни один формат не подошел
+        raise ValueError(f"Неизвестный формат даты: {time_str}")
 
+    def map_calculated_values_with_hours(self, press_data, calculated_times_hours, primary_sum, step):
+        result = {}
+        
+        # Сначала всем ставим None
+        for hour in press_data.keys():
+            result[hour] = None
+        
+        # Для каждой расчетной временной точки находим ближайший доступный час
+        for i, target_hour in enumerate(calculated_times_hours):
+            # Находим ближайший час из доступных
+            closest_hour = min(press_data.keys(), key=lambda h: abs(h - target_hour))
+            result[closest_hour] = primary_sum[i]
+        
+        return result
+
+    def convert_hours_to_datetime_keys(self, hours_dict, start_datetime_str, output_format='%d.%m.%Y %H:%M'):
+        """
+        Конвертирует словарь с часами обратно в формат datetime ключей.
+        
+        Args:
+            hours_dict: словарь {часы: значение}
+            start_datetime_str: начальная дата в формате '01.01.2025 0:00' или '01.01.2025'
+            output_format: желаемый формат выходных дат
+        
+        Returns:
+            Словарь {дата_время: значение}
+        """
+        from datetime import datetime, timedelta
+        
+        try:
+            start_time = self.parse_flexible_datetime(start_datetime_str)
+        except ValueError as e:
+            raise ValueError(f"Неверный формат начальной даты '{start_datetime_str}': {e}")
+        
+        result = {}
+        
+        for hours, value in hours_dict.items():
+            try:
+                time_dt = start_time + timedelta(hours=float(hours))
+                time_str = time_dt.strftime(output_format)
+                result[time_str] = value
+            except Exception as e:
+                print(f"⚠️ Ошибка конвертации часов {hours}: {e}")
+        
+        return result
 
 class UserTechDataModel:
     def __init__(self, data=[], user_id: int = 0):

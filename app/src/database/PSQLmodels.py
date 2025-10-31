@@ -46,6 +46,9 @@ class Well(Base):
     is_press = Column(Boolean, nullable=True)
     is_debit = Column(Boolean, nullable=True)
     user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    spider = Column(Boolean, default=False)
+    rpl = Column(Boolean, default=False)
+    rsum = Column(Boolean, default=False)
 
     user = relationship("User", back_populates="wells")
 
@@ -687,6 +690,7 @@ class DataModel:
                 dpi.append(DPi) #  / 101325
             
             self.session.execute(update(Data).where(Data.well_id == self.well_id).values(dpi = dpi, spider_graph = res_spider))
+            self.session.execute(update(Well).where(Well.id == self.well_id, Well.user_id == self.user_id).values(spider = True))
             self.session.commit()
             return True
         except Exception as e:
@@ -778,6 +782,9 @@ class DataModel:
                 else:
                     result[time] = None
             # print(X_row)
+            # для отображения на главной:
+            self.session.execute(update(Well).where(Well.user_id == self.user_id).values(rsum = True))
+            self.session.commit()
             return result
         except Exception as e:
             return {"msg": f"Ошибка при расчете суммы давлений: {e}"}
@@ -906,6 +913,9 @@ class DataModel:
             # 3. Конвертируем обратно в нужный формат дат
             start_datetime = list(press_data_time.keys())[0]
             result_datetime = self.convert_hours_to_datetime_keys(result_hours, start_datetime)
+
+            self.session.execute(update(Well).where(Well.user_id == self.user_id).values(rpl = True))
+            self.session.commit()
             return result_datetime
         except Exception as e:
             return {"msg": f"ошибка при расчете Рпластового: {e}"}

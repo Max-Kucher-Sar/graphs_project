@@ -169,7 +169,10 @@ class Data:
 
 @data_router.put("/upload_primary_data") 
 async def upload_primary_data(well_id: int, data_debit: str = Form(...), data_press: str = Form(...),user_id: int = Depends(get_current_user_id)):
-    units = Data(user_id=user_id).get_user_units().__dict__
+    try:
+        units = Data(user_id=user_id).get_user_units().__dict__
+    except:
+        return {"msg": "Сперва задайте единицы измерения в пользовательских настройках"}
     units.pop("user_id")
     units.pop("well_id")
     units.pop("id")

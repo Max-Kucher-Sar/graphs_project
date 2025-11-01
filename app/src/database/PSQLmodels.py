@@ -26,6 +26,7 @@ user = os.getenv('user')
 pswd = os.getenv('pswd')
 
 Base = declarative_base()
+
 class User(Base):
     __tablename__ = 'users'
     id = Column(Integer, primary_key=True)
@@ -918,7 +919,6 @@ class DataModel:
             start_datetime = list(press_data_time.keys())[0]
             result_datetime = self.convert_hours_to_datetime_keys(result_hours, start_datetime)
 
-            self.session.execute(update(Well).where(Well.user_id == self.user_id).values(rpl = True))
             self.session.commit()
             return result_datetime
         except Exception as e:
@@ -998,6 +998,26 @@ class DataModel:
                 print(f"⚠️ Ошибка конвертации часов {hours}: {e}")
         
         return result
+
+    def delete_all_user_data(self):
+        try:
+            user = self.session.query(User).filter(User.id == self.user_id).first()
+            if not user:
+                return False
+            
+            wells_count = self.session.query(Well).filter(Well.user_id == self.user_id).count()
+            
+            if wells_count > 0:
+                deleted_wells = self.session.query(Well).filter(Well.user_id == self.user_id).delete(synchronize_session=False)
+                self.session.commit()
+                return True
+            else:
+                self.session.commit()
+                return False
+                     
+        except Exception as e:
+            self.session.rollback()
+            return {"msg": f"Ошибка при удалении всех пользовательских данных: {e}"}
 
 class UserTechDataModel:
     def __init__(self, data=[], user_id: int = 0):

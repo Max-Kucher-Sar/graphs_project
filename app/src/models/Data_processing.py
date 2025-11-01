@@ -166,6 +166,9 @@ class Data:
     
     def create_reservoir_press(self, step: int, interval: int):
         return DataModel(user_id=self.user_id).create_reservoir_press(step=step, interval=interval)
+    
+    def delete_all_user_data(self):
+        return DataModel(user_id=self.user_id).delete_all_user_data()
 
 @data_router.put("/upload_primary_data") 
 async def upload_primary_data(well_id: int, data_debit: str = Form(...), data_press: str = Form(...),user_id: int = Depends(get_current_user_id)):
@@ -216,3 +219,7 @@ async def get_press_sum(user_id: int = Depends(get_current_user_id)):
 @data_router.get("/get_reservoir_press/{interval}/{step}")
 async def get_reservoir_press(interval: int, step: int, user_id: int = Depends(get_current_user_id)):
     return Data(user_id=user_id).create_reservoir_press(step=step, interval=interval)
+
+@data_router.delete("/delete_all_user_data")
+async def delete_all_user_data(user_id: int = Depends(get_current_user_id)):
+    return Data(user_id=user_id).delete_all_user_data()

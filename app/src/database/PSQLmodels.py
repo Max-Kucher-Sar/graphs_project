@@ -918,7 +918,6 @@ class DataModel:
             start_datetime = list(press_data_time.keys())[0]
             result_datetime = self.convert_hours_to_datetime_keys(result_hours, start_datetime)
 
-            self.session.execute(update(Well).where(Well.user_id == self.user_id).values(rpl = True))
             self.session.commit()
             return result_datetime
         except Exception as e:

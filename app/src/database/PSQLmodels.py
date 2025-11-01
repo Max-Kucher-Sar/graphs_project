@@ -47,7 +47,7 @@ class Well(Base):
     is_debit = Column(Boolean, nullable=True)
     user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     spider = Column(Boolean, default=False)
-    rpl = Column(Boolean, default=False)
+    rpl = Column(JSONB, default=dict)
     rsum = Column(Boolean, default=False)
 
     user = relationship("User", back_populates="wells")
@@ -102,7 +102,6 @@ class WellTechData(Base):
     volume_factor = Column(Numeric(40, 25), nullable=True)
 
     well = relationship("Well", back_populates="well_tech_data")
-
 
 
 engine = create_engine(f'postgresql+psycopg2://{user}:{pswd}@postgres/pdb', pool_size=50, max_overflow=0)
@@ -797,6 +796,7 @@ class DataModel:
         3)пойти по ним циклом и собрать список списков
         """
         try:
+            
             # БЕРЕМ НАСТРОЙКУ ДЕБИТА ПОЛЬЗОВАТЕЛЯ
             debit_unit = self.session.query(UserTechData.debit).filter(UserTechData.user_id == self.user_id, UserTechData.well_id == None).scalar()
             # БЕРЕМ ДАВЛЕНИЕ И АЙДИ ИССЛЕДУЕМОЙ СКВАЖИНЫ
@@ -804,6 +804,10 @@ class DataModel:
             main_info = self.session.execute(stmt).all()
             main_well_press_first = float(main_info[0][0])
             main_well_id = int(main_info[0][1])
+
+            #СОХРАНЯЕМ ВВОДИМЫЕ ПАРАМЕТРЫ
+            data = {"step": step, "interval": interval}
+            self.session.execute(update(Well).where(Well.user_id == self.user_id, Well.id == main_well_id).values(rpl = True))
 
             # БЕРЕМ ДАННЫЕ ПО ДАВЛЕНИЮ В ВИДЕ СЛОВАРЯ ЧТОБЫ ПОЛУЧИТЬ ВРЕМЯ ПО ОСИ Х
             press_data_time = self.session.query(Data.press_data).filter(Data.well_id == main_well_id).scalar()

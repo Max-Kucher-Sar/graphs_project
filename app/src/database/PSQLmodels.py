@@ -258,10 +258,10 @@ def convert_to_si(
             return result
             
         else:
-            return {"err_msg": "Не переданы данные для конвертации"}
+            return {"msg": "Не переданы данные для конвертации"}
             
     except Exception as e:
-        return {"err_msg": f"Ошибка при конвертировании параметра в удобные нам единицы: {e}"}
+        return {"msg": f"Ошибка при конвертировании параметра в удобные нам единицы: {e}"}
 
 # def convert_to_user_si(debit_info: Optional[dict()] = None, values: Optional[dict()] = None, measures: Optional[dict()] = None, press_info: Optional[dict()] = None):
 #         pressure = {"тех.атм": 98066.5, "psi": 0.000145038, "МПа": 1000000, "физ.атм": 0.00000986923, "kПа-1": 1000} # разделить чтобы перевести в СИ
@@ -399,10 +399,10 @@ def convert_to_user_si(
             return result
             
         else:
-            return {"err_msg": "Не переданы данные для конвертации"}
+            return {"msg": "Не переданы данные для конвертации"}
             
     except Exception as e:
-        return {"err_msg": f"Ошибка при конвертировании параметра в пользовательские единицы: {e}"}
+        return {"msg": f"Ошибка при конвертировании параметра в пользовательские единицы: {e}"}
 
 class UserModel:
     def __init__(self, id: int = 0, login: str = '', password : str = '', licence_date: str = '', admin=False):
@@ -430,8 +430,8 @@ class UserModel:
                 )
                 self.session.add(new_user)
                 self.session.commit()
-                return {"msg": "Пользователь создан"}
-            return {"msg": "Пользователь уже существует"}
+                return True
+            return False
         except Exception as e:
             self.session.rollback()
             return {"msg": f"ошибка при покупке: {e}"}
@@ -457,8 +457,8 @@ class UserModel:
                 existing_user.admin = data.admin
 
                 self.session.commit()
-                return {"msg": "Пользователь обновлен"}
-            return {"msg": "Пользователь отсутствует"}
+                return True
+            return False
         except Exception as e:
             self.session.rollback()
             return {"msg": f"ошибка при покупке: {e}"}
@@ -471,8 +471,8 @@ class UserModel:
             if existing_user:
                 self.session.delete(existing_user)
                 self.session.commit()
-                return {"msg": "Пользователь удален"}
-            return {"msg": "Пользователь отсутствует"}
+                return True
+            return False
         except Exception as e:
             self.session.rollback()
             return {"msg": f"ошибка при покупке: {e}"}
@@ -492,7 +492,7 @@ class WellModel:
         try:
             existing_well = self.session.query(Well).filter(Well.name == self.name, Well.user_id == self.user_id).first()
             if existing_well:
-                return {"msg": "Скважина уже существует"}
+                return False
             max_id = self.session.query(func.max(Well.id)).scalar() or 0
             new_id = max_id + 1
             new_well = Well(
@@ -504,7 +504,7 @@ class WellModel:
             )
             self.session.add(new_well)
             self.session.commit()
-            return {"msg": "Скважина создана"}
+            return True
         except Exception as e:
             self.session.rollback()
             return {"msg": f"ошибка при покупке: {e}"}
@@ -517,8 +517,8 @@ class WellModel:
             if existing_well:
                 self.session.delete(existing_well)
                 self.session.commit()
-                return {"msg": "Скважина удалена"}
-            return {"msg": "Скважина не существует"}
+                return True
+            return False
         except Exception as e:
             self.session.rollback()
             return {"msg": f"ошибка при покупке: {e}"}
@@ -949,7 +949,8 @@ class DataModel:
                 continue
         
         # Если ни один формат не подошел
-        raise ValueError(f"Неизвестный формат даты: {time_str}")
+        # raise ValueError(f"Неизвестный формат даты: {time_str}")
+        raise {"msg": f"Неизвестный формат даты: {time_str}"}
 
     def map_calculated_values_with_hours(self, press_data, calculated_times_hours, primary_sum, step):
         result = {}
@@ -983,7 +984,8 @@ class DataModel:
         try:
             start_time = self.parse_flexible_datetime(start_datetime_str)
         except ValueError as e:
-            raise ValueError(f"Неверный формат начальной даты '{start_datetime_str}': {e}")
+            # raise ValueError(f"Неверный формат начальной даты '{start_datetime_str}': {e}")
+            raise {"msg": f"Неверный формат начальной даты '{start_datetime_str}': {e}"}
         
         result = {}
         
@@ -1097,10 +1099,6 @@ class WellTechDataModel:
             # user_units = self.session.query(UserTechData).filter(UserTechData.user_id == self.user_id).first()
             user_units = UserTechDataModel(user_id=self.user_id).get_user_units(well_id=self.well_id)
             convert_result = convert_to_si(values=self.data, measures=user_units.__dict__)
-            
-            print(user_units.__dict__, "при заносе в БД")
-            print(self.data, "при заносе в БД")
-            print(convert_result, "при заносе в БД")
             result = self.session.execute(update(WellTechData).where(WellTechData.well_id == self.well_id).values(**convert_result))
             self.session.commit()
             if result:
@@ -1124,9 +1122,6 @@ class WellTechDataModel:
                 # Берем СИ юзера
                 user_units = UserTechDataModel(user_id=user_id).get_user_units(well_id=self.well_id)
                 result = convert_to_user_si(values=well_measures.__dict__, measures=user_units.__dict__)
-                print(user_units.__dict__, "при выносе")
-                print(well_measures.__dict__,  "при выносе")
-                print(result,  "при выносе")
                 return result
             else:
                 max_id = self.session.query(func.max(WellTechData.id)).scalar() or 0

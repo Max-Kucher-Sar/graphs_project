@@ -808,8 +808,8 @@ class DataModel:
 
             #СОХРАНЯЕМ ВВОДИМЫЕ ПАРАМЕТРЫ
             data = {"step": step, "interval": interval}
-            self.session.execute(update(Well).where(Well.user_id == self.user_id, Well.id == main_well_id).values(rpl = True))
-
+            self.session.execute(update(Well).where(Well.user_id == self.user_id, Well.id == main_well_id).values(rpl = data))
+            self.session.commit()
             # БЕРЕМ ДАННЫЕ ПО ДАВЛЕНИЮ В ВИДЕ СЛОВАРЯ ЧТОБЫ ПОЛУЧИТЬ ВРЕМЯ ПО ОСИ Х
             press_data_time = self.session.query(Data.press_data).filter(Data.well_id == main_well_id).scalar()
             press_data = self.get_hours(press_data_time)
